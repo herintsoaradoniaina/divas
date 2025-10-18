@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parseur de données</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px; /* Ajustez cette valeur pour contrôler l'espace entre les tables */
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        textarea {
+            width: 100%;
+            box-sizing: border-box; /* Assure que la largeur inclut aussi le padding et la bordure */
+            max-width: 100%; /* Empêche le textarea de dépasser la largeur de la page */
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Afficher Liste d'Erreur</h1>
+
+    <!-- Sélecteur de date -->
+    <label for="dateSelector">Sélectionnez une date :</label>
+    <input type="date" id="dateSelector"><br><br>
+
+    <label for="dataInput">COLLER ICI DETAILS ASIN :</label><br>
+    <textarea id="dataInput" rows="10" cols="100" placeholder="Collez ici vos données..."></textarea><br><br>
+    <button onclick="parseData()">Parse</button>
+
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Batch</th>
+                <th>HitID</th>
+                <th>Query URL</th>
+                <th>ASINs</th>
+                <th>ASIN URL</th>
+                <th>WIDS concernés</th>
+                <th>Attribut incorrect</th>
+                <th>Attribut correct</th>
+                <th>Commentaire CQ/QAS</th>
+                <th>Type erreur</th>
+                <th>Commentaire CE/CF</th>
+                <th>Action CE/CF</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Les résultats seront insérés ici -->
+        </tbody>
+    </table>
+
+    <script>
+        function parseData() {
+            // Récupérer la date sélectionnée
+            const selectedDate = document.getElementById('dateSelector').value;
+            
+            if (!selectedDate) {
+                alert('Veuillez sélectionner une date.');
+                return;
+            }
+
+            // Récupérer les données depuis le textarea
+            const rawData = document.getElementById('dataInput').value;
+            const rows = rawData.trim().split('\n');
+
+            // Sélectionner la table et son corps
+            const tableBody = document.querySelector('#resultTable tbody');
+            tableBody.innerHTML = '';  // Vider le tableau
+
+            // Utiliser un objet pour regrouper les lignes par "Commentaire"
+            const groupedData = {};
+
+            // Parcourir chaque ligne de données (sauter la première ligne si c'est l'entête)
+            for (let i = 1; i < rows.length; i++) {
+                const columns = rows[i].split('\t');  // Les colonnes sont séparées par des tabulations
+
+                // Trouver la colonne "Commentaire" et vérifier si la valeur "ko" existe
+                const comment = columns[13] || '';  // Commentaire CQ/QAS
+                const hitID = columns[0] || '';  // HitID
+                const asin = columns[10] || '';  // ASIN
+                const query = columns[3] || '';  // Input.imageURL
+                const asinImage = columns[7] || '';  // amazon.image
+                const workerID = columns[2] || '';  // WorkerId
+                const batch = columns[32] || '';  // Batch (33ème colonne)
+                const attributIncorrect = columns[11] || '';  // Attribut incorrect (12ème colonne)
+                const attributCorrect = columns[12] || '';  // Attribut correct (13ème colonne)
+
+                // Ignorer les lignes sans commentaire
+                if (!comment) {
+                    continue; // Passe à la prochaine ligne si le commentaire est vide
+                }
+
+                // Vérifier si le commentaire est présent
+                if (!groupedData[comment]) {
+                    groupedData[comment] = {
+                        date: selectedDate,
+                        batch: batch,
+                        hitID: hitID,
+                        query: query,
+                        asin: [],
+                        asinImage: asinImage,
+                        workerIDs: [],
+                        attributIncorrect: attributIncorrect,
+                        attributCorrect: attributCorrect,
+                        commentCQ: comment,
+                        typeErreur: '',  // Laissez vide
+                        commentaireCECF: '',  // Laissez vide
+                        actionCECF: ''  // Laissez vide
+                    };
+                }
+
+                // Regrouper les ASINs et les WorkerIDs
+                if (!groupedData[comment].asin.includes(asin)) {
+                    groupedData[comment].asin.push(asin);
+                }
+                if (!groupedData[comment].workerIDs.includes(workerID)) {
+                    groupedData[comment].workerIDs.push(workerID);
+                }
+            }
+
+            // Remplir le tableau avec les données regroupées
+            for (const key in groupedData) {
+                const data = groupedData[key];
+                const newRow = document.createElement('tr');
+
+                // Créer les cellules avec les nouvelles valeurs regroupées
+                newRow.innerHTML = `
+                    <td>${data.date}</td>
+                    <td>${data.batch}</td>
+                    <td>${data.hitID}</td>
+                    <td><a href="${data.query}" target="_blank">${data.query}</a></td>
+                    <td>${data.asin.join(' / ')}</td>
+                    <td><a href="${data.asinImage}" target="_blank">${data.asinImage}</a></td>
+                    <td>${data.workerIDs.join(' / ')}</td>
+                    <td>${data.attributIncorrect}</td>
+                    <td>${data.attributCorrect}</td>
+                    <td>${data.commentCQ}</td>
+                    <td>${data.typeErreur}</td>
+                    <td>${data.commentaireCECF}</td>
+                    <td>${data.actionCECF}</td>
+                `;
+
+                // Ajouter la nouvelle ligne au tableau
+                tableBody.appendChild(newRow);
+            }
+        }
+		
+		
+		
+		
+		async function copyTableToClipboard(table) {
+    if (!table) {
+        console.error('Table non trouvée.');
+        return;
+    }
+
+    // Vérifier si la table est vide
+    if (!table.innerText.trim()) {
+        alert('Table vide');
+        return;
+    }
+
+    try {
+        // Obtenir le contenu de la table
+        const tableText = table.innerText;
+
+        // Copier le contenu dans le presse-papiers en utilisant l'API Clipboard
+        await navigator.clipboard.writeText(tableText);
+
+        // Obtenir l'ID de la table
+        const tableId = table.id || 'sans ID';
+
+        // Afficher une notification pour l'utilisateur avec l'ID de la table
+        alert(`Table ${tableId} copiée dans le presse-papiers!`);
+    } catch (err) {
+        console.error('Erreur lors de la copie dans le presse-papiers:', err);
+    }
+}
+
+// Ajouter l'événement click pour copier une table
+document.querySelectorAll('table').forEach(table => {
+    table.onclick = () => {
+        copyTableToClipboard(table);
+    };
+});
+    </script>
+
+</body>
+</html>

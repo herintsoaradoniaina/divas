@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Connexion au Chat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .login-container, .chat-container {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 90%;
+      max-width: 500px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .login-container.active, .chat-container.active {
+      display: flex;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+
+    button {
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .messages {
+      flex-grow: 1;
+      overflow-y: auto;
+      max-height: 300px;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .message {
+      margin: 5px 0;
+      padding: 8px;
+      background-color: #e2f7e7;
+      border-radius: 4px;
+    }
+
+    .username-label {
+      font-weight: bold;
+      color: #2d2d2d;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Connexion -->
+  <div class="login-container active" id="login-container">
+    <h2>Connexion</h2>
+    <input type="text" id="login-name" placeholder="Entrez votre nom" />
+    <input type="password" id="login-password" placeholder="Mot de passe (commun)" />
+    <button onclick="handleLogin()">Entrer</button>
+  </div>
+
+  <!-- Interface de Chat -->
+  <div class="chat-container" id="chat-container">
+    <h2 id="chat-header"></h2>
+    <div class="messages" id="messages"></div>
+    <input type="text" id="user-message" placeholder="Écrivez votre message..." />
+    <button onclick="sendMessage()">Envoyer</button>
+  </div>
+
+<script>
+  let currentUser = "";
+  const messages = [];
+  const allowedLogins = ["1090", "2433", "1765"];
+  const PASSWORD = "Az1234erT";
+  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycby2Elp_Pdpd-JoFd3jw82-UH_ZChCPzT20cK6SBc0Ah8ErhLJ1tl4_Y9Ulvwp5Dw-9k_g/exec"; // ← à remplacer par ton URL de script déployé
+
+  function handleLogin() {
+    const name = document.getElementById("login-name").value.trim();
+    const pass = document.getElementById("login-password").value.trim();
+
+    if (!name || !pass) {
+      alert("Veuillez entrer un identifiant et un mot de passe.");
+      return;
+    }
+
+    if (!allowedLogins.includes(name)) {
+      alert("Identifiant non autorisé.");
+      return;
+    }
+
+    if (pass !== PASSWORD) {
+      alert("Mot de passe incorrect.");
+      return;
+    }
+
+    currentUser = name;
+
+    document.getElementById("login-container").classList.remove("active");
+    document.getElementById("chat-container").classList.add("active");
+    document.getElementById("chat-header").textContent = "Bienvenue, " + currentUser;
+  }
+
+  async function sendMessage() {
+    const text = document.getElementById("user-message").value.trim();
+    if (!text) return;
+
+    const messageId = "groupe1"; // ou autre logique si besoin
+    const timestamp = new Date().toISOString();
+
+    // Enregistrer localement
+    messages.push({ name: currentUser, text });
+    renderMessages();
+    document.getElementById("user-message").value = "";
+
+    // Envoi vers Google Sheets
+    try {
+      await fetch(GOOGLE_SHEET_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          sender: currentUser,
+          messageId: messageId,
+          message: text,
+          timestamp: timestamp
+        }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'envoi vers Google Sheets :", error);
+    }
+  }
+
+  function renderMessages() {
+    const messagesDiv = document.getElementById("messages");
+    messagesDiv.innerHTML = "";
+
+    messages.forEach(msg => {
+      const div = document.createElement("div");
+      div.classList.add("message");
+      div.innerHTML = `<span class="username-label">${msg.name}:</span> ${msg.text}`;
+      messagesDiv.appendChild(div);
+    });
+
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }
+
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      if (document.getElementById("login-container").classList.contains("active")) {
+        handleLogin();
+      } else {
+        sendMessage();
+      }
+    }
+  });
+</script>
+
+</body>
+</html>

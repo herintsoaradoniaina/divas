@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traitement de fichier TSV</title>
+    <script src="papaparse_rado.js"></script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: right;
+        }
+        #tableContainer {
+            display: none;
+        }
+		#brut_table {
+            display: none;
+        }
+		#indextype {
+		  display: none;
+		}
+		.file-input {
+            display: block;
+            margin-bottom: 20px;
+        }
+		.notification {
+		position: fixed;
+		top: 55px; /* Positionné à 55px du haut de la page */
+		left: 50%; /* Centré horizontalement */
+		transform: translateX(-50%); /* Ajuste le centre pour la largeur du message */
+		background-color: #4caf50;
+		color: white;
+		padding: 10px;
+		border-radius: 5px;
+		display: none; /* Caché par défaut */
+		z-index: 1000; /* Assure qu'il est au-dessus des autres éléments */
+		font-size: 18px; /* Ajuste la taille du texte si nécessaire */
+		font-size bold: true
+		text-align: center; /* Centre le texte à l'intérieur du message */
+	  }
+	  button {
+        background-color: #4caf50;
+        color: white;
+        padding: 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+	
+	/* Style pour les tables accord_workerid et accord_attribut */
+table {
+    width: auto;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+th {
+    text-align: center;
+    background-color: #007BFF; /* Bleu */
+    color: white;
+    font-size: 14px;
+    padding: 8px;
+}
+
+#table_output {
+    display: flex;
+    justify-content: space-between; /* Ajoute un espacement égal entre les tables */
+    gap: 20px; /* Optionnel, ajuste l'espace entre les deux tables */
+    flex-wrap: wrap; /* Permet aux tables de se déplacer sous si la largeur de l'écran est trop petite */
+}
+
+table {
+    width: 48%; /* Chaque table occupe 48% de la largeur de l'écran, ajustable */
+    border-collapse: collapse;
+    margin: 10px 0;
+	
+}
+
+#notification {
+    transition: opacity 1s ease-in-out;
+}
+
+#accord_hitid_attribut {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* Pour forcer les colonnes à se répartir équitablement */
+    font-size: 13px; /* Police légèrement réduite */
+	display: none;
+}
+
+
+
+
+
+
+    </style>
+</head>
+<body>
+<header>
+<div id="notification" class="notification">
+		Brute Table Created.
+		</div>
+</header>
+
+<h1 align="center">Estimation Accord/Desaccord détaillées</h1>
+
+<input type="file" id="fileInput" accept=".tsv" />
+<button onclick="processFile()">Parcourir le fichier</button>
+<label>
+  <input type="checkbox" id="toggleDetails">
+  Afficher détails
+</label>
+
+<div><h2>Tableau Brut</h2> <textarea id="liste_smarter" placeholder="Collez ici la liste UUID\tMatricule" rows="5" cols="50"></textarea></div>
+
+<p id="notification" style="color: green; display: none;">Table created</p>
+<div>
+<label for="indexType">Choisir WorkerID:</label>
+		<select id="indextype">
+			<option value="camera_search">CS</option>
+			<option value="camera_search_irr">CS IRR</option>			
+			<option value="furniture">FURNITURE</option> 
+			<option value="furniture_irr">FURNITURE IRR</option>
+		</select>
+<select id="workerid_liste" onchange="calculateStats()">
+        <!--option value="All">All</option>
+        <!-- Options dynamiques -->
+</select>
+</div>
+<label id="matricule_label">Matricule : <span id="matricule_value">N/A</span></label>
+
+<div id="table_output">
+    <table border="1" id="accord_workerid">
+        <thead>
+            <tr>
+                <th colspan="5" style="text-align: center; background-color: blue; color: white;">Accord par WorkerID</th>
+            </tr>
+            <tr>
+                <th>WorkerID</th>
+                <th>Maj</th>
+                <th>Min</th>
+                <th>Taux d'Accord</th>
+                <th>Taux Désaccord</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <table border="1" id="accord_attribut">
+        <thead>
+            <tr>
+                <th colspan="5" style="text-align: center; background-color: blue; color: white;">Accord par Attribut</th>
+            </tr>
+            <tr>
+                <th>Attributs</th>
+                <th>Maj</th>
+                <th>Min</th>
+                <th>Taux d'Accord</th>
+                <th>Taux Désaccord</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<table id="brut_table">
+        <thead>
+            <tr>
+                <th>hitid</th>
+                <th>AssignmentId</th>
+                <th>workerid</th>
+                <th>key</th>
+                <th>assin_json</th>
+                <th>assin_juge_json</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+<div id="tableContainer">
+    
+	<table id="resultTable"></table>
+    <button onclick="showTable()">Show table</button>
+</div>
+<div style="overflow-x: auto; width: 100%;">
+    <table id="accord_hitid_attribut">
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+
+
+<script>
+    function processFile() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert("Veuillez sélectionner un fichier.");
+            return;
+        }
+
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const fileContent = e.target.result;
+            const rows = Papa.parse(fileContent, {
+                delimiter: "\t",
+                header: true,
+                skipEmptyLines: true
+            }).data;
+
+            const requiredHeaders = ["HITId", "Answer.output_data", "AssignmentId", "WorkerId"];
+            const fileHeaders = rows[0] ? Object.keys(rows[0]) : [];
+
+            // Vérification des en-têtes requis
+            const missingHeaders = requiredHeaders.filter(header => !fileHeaders.includes(header));
+            if (missingHeaders.length > 0) {
+                alert("Erreur : " + missingHeaders.join(", ") + " manquants dans le fichier.");
+                return;
+            }
+
+            // Traitement du fichier
+            const tableBody = document.querySelector('#brut_table tbody');
+            tableBody.innerHTML = ''; // Réinitialiser le tableau avant de remplir
+
+            rows.forEach(row => {
+				const jsonData = JSON.parse(row['Answer.output_data']);
+				for (const key in jsonData) {
+					const subKeys = [];
+					for (const subKey in jsonData[key]) {
+						// Si la valeur est true, et que subKey n'est pas 'on', 'link_clicked' et 'relevance_label'
+						if (jsonData[key][subKey] === true && subKey !== 'on' && subKey !== 'link_clicked' && subKey !== 'relevance_label') {
+							subKeys.push(subKey); // Ajoute le subKey normalement
+						}
+						// Si subKey est 'relevance_label', ajoute sa valeur à la liste des subKeys
+						else if (subKey === 'relevance_label') {
+							subKeys.push(jsonData[key][subKey]); // Ajoute la valeur de 'relevance_label'
+							console.log(`Valeur ajoutée pour 'relevance_label': ${jsonData[key][subKey]}`); // Affiche dans la console
+						}
+					}
+					if (subKeys.length > 0) {
+						const newRow = document.createElement('tr');
+						newRow.innerHTML = `
+							<td>${row['HITId']}</td>
+							<td>${row['AssignmentId']}</td>
+							<td>${row['WorkerId']}</td>
+							<td>${key}</td>
+							<td>${subKeys.join(', ')}</td>
+							<td>o</td>
+						`;
+						tableBody.appendChild(newRow);
+					}
+				}
+			});
+
+
+
+
+
+            // Afficher la notification et cacher le tableau
+			const notification = document.getElementById('notification');
+            notification.textContent = 'Le traitement des données est terminé.';
+			notification.style.display = 'block';
+
+			// Masquer la notification après 5 secondes (5000 ms)
+			setTimeout(() => {
+			notification.style.opacity = '0'; 
+			setTimeout(() => {
+				notification.style.display = 'none';
+				notification.style.opacity = '1'; // Réinitialiser pour la prochaine apparition
+			}, 500); // Correspond à la durée de transition CSS
+		}, 5000);
+			//mise ajour irr mise a jour irr
+			document.getElementById('tableContainer').style.display = 'none';
+			processDataDaily(brut_table);
+        };
+        
+        reader.onerror = function() {
+            alert("Erreur de lecture du fichier.");
+        };
+
+        reader.readAsText(file);
+    }
+
+
+	
+	
+//// ANDRANA TOTAL ANDRANA TOTAL
+function processDataDaily(data) {
+    // Supposons que brut_table est déjà un tableau d'objets JavaScript
+    //const parsedData = brut_table;
+    const fragment = document.createDocumentFragment(); // Meilleure performance DOM
+    let parsedData = brut_table; // Remplace `const` par `let`
+
+    // Récupérer les en-têtes directement depuis le tableau HTML
+    const headersFromData = Array.from(document.querySelectorAll("#brut_table thead th"))
+        .map(th => th.textContent.trim().toLowerCase()); // Convertir en minuscule
+
+    // Définition des en-têtes nécessaires (normalisés en minuscules)
+    const necessaryHeaders = ['hitid', 'assignmentid', 'workerid', 'key', 'assin_json', 'assin_juge_json'];
+    const normalizedNecessaryHeaders = necessaryHeaders.map(header => header.toLowerCase());
+
+    // Vérification de la présence des en-têtes
+    const headersPresent = normalizedNecessaryHeaders.every(header => headersFromData.includes(header));
+
+    if (!headersPresent) {
+        const missingHeaders = normalizedNecessaryHeaders.filter(header => !headersFromData.includes(header));
+        console.error("🚨 En-têtes manquants :", missingHeaders);
+        alert("Les en-têtes nécessaires ne sont pas toutes présentes : " + missingHeaders.join(", "));
+        return;
+    }
+
+    const resultTable = document.getElementById('resultTable');
+    resultTable.innerHTML = '';
+
+    const caption = resultTable.createCaption();
+    caption.textContent = 'ANALYSE GLOBAL DES RESULTATS VENANT DE LOOKERS STUDIO';
+
+    // Définir les attributs en fonction de la sélection
+    const indexTypeSelect = document.getElementById('indextype');
+    const selectedIndexType = indexTypeSelect.value;
+
+    let explicitAttributes = [];
+    if (selectedIndexType === 'camera_search') {
+        explicitAttributes = [
+            'asin_image_not_load', 'cannot_judge', 'exact_match', 'has_product_difference',
+            'irrelevant', 'is_wrong_bundle', 'is_wrong_characteristic', 'is_wrong_packaging_overlay',
+            'is_wrong_size_or_count', 'no_difference', 'possible_substitute', 'wrong_category'
+        ];
+    } else if (selectedIndexType === 'furniture') {
+        explicitAttributes = [
+            'asin_image_not_load', 'cannot_judge', 'color', 'design', 'exact_match', 'extra_features',
+            'irrelevant', 'location', 'material', 'no_difference', 'pattern', 'possible_substitute', 'shape',
+            'size', 'support_type', 'surface_placement', 'wrong_age_group', 'wrong_category'
+        ];
+    } else if (selectedIndexType === 'camera_search_irr') {
+        explicitAttributes = [
+            'asin_image_not_load', 'cannot_judge', 'exact_match', 'has_product_difference',
+            'irrelevant', 'is_wrong_bundle', 'is_wrong_characteristic', 'is_wrong_packaging_overlay',
+            'is_wrong_size_or_count', 'no_difference', 'possible_substitute', 'wrong_category'
+        ];
+    } else if (selectedIndexType === 'furniture_irr') { 
+        explicitAttributes = [
+            'asin_image_not_load', 'cannot_judge', 'color', 'design', 'exact_match', 'extra_features',
+            'irrelevant', 'location', 'material', 'no_difference', 'pattern', 'possible_substitute', 'shape',
+            'size', 'support_type', 'surface_placement', 'wrong_age_group', 'wrong_category'
+        ];
+    }
+
+    // Trier les attributs par ordre alphabétique
+    const sortedUniqueKeys = explicitAttributes.sort((a, b) => a.localeCompare(b));
+
+    const headers = necessaryHeaders.concat(['smarter', 'juge']);
+    const headerRow = resultTable.insertRow();
+
+    headers.forEach(header => {
+        const cell = document.createElement('th');
+        cell.textContent = header;
+        headerRow.appendChild(cell);
+    });
+
+    sortedUniqueKeys.forEach(key => {
+        const cell = document.createElement('th');
+        cell.textContent = key;
+        headerRow.appendChild(cell);
+    });
+
+    const asinJudgmentHeader = document.createElement('th');
+    asinJudgmentHeader.textContent = 'Jugement ASIN';
+    headerRow.appendChild(asinJudgmentHeader);
+
+    const assignmentJudgmentHeader = document.createElement('th');
+    assignmentJudgmentHeader.textContent = 'Jugement Assignement';
+    headerRow.appendChild(assignmentJudgmentHeader);
+
+    const hitJudgmentHeader = document.createElement('th');
+    hitJudgmentHeader.textContent = 'Jugement HitId';
+    headerRow.appendChild(hitJudgmentHeader);
+
+    ///////////////////////////////
+    // Conversion du tableau HTML en tableau d'objets JavaScript
+    // Vérifier que parsedData est bien un tableau
+    if (!Array.isArray(parsedData)) {
+        parsedData = []; // Le rendre réassignable si nécessaire
+    } else {
+        parsedData.length = 0; // Sinon, vider le tableau existant
+    }
+
+    // Conversion du tableau HTML en tableau d'objets JavaScript
+    const rows = Array.from(brut_table.querySelectorAll('tr')).slice(1); // On ignore la première ligne si c'est un en-tête
+
+    rows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        let rowData = {};
+        cells.forEach((cell, index) => {
+            rowData[headers[index] || `col${index}`] = cell.textContent.trim();
+        });
+        parsedData.push(rowData); // Ajouter l'objet au tableau existant
+    });
+
+    ///////////////////////////////
+    // Création optimisée de la table
+    const resultTableBody = document.createDocumentFragment(); // Ajout pour optimisation DOM
+
+    parsedData.forEach(row => {
+        const assinJson = row.assin_json.split(',');
+        const jugeJson = row.assin_juge_json.split(',');
+
+        row.smarter = assinJson.join(',');
+        row.juge = jugeJson.join(',');
+
+        const rowElement = document.createElement('tr');
+        headers.forEach(header => {
+            const cell = rowElement.insertCell();
+            cell.textContent = row[header] || '';
+        });
+
+        sortedUniqueKeys.forEach(key => {
+            const cell = rowElement.insertCell();
+            cell.textContent = '';
+        });
+
+        const asinJudgmentCell = rowElement.insertCell();
+        asinJudgmentCell.textContent = '';
+
+        const assignmentJudgmentCell = rowElement.insertCell();
+        assignmentJudgmentCell.textContent = '';
+
+        const hitJudgmentCell = rowElement.insertCell();
+        hitJudgmentCell.textContent = '';
+
+        // Ajout de la ligne au fragment DOM
+        resultTableBody.appendChild(rowElement);
+    });
+
+    // Une fois les lignes créées, on les ajoute toutes en une fois au DOM pour optimiser la performance
+    resultTable.appendChild(resultTableBody);
+
+    // Reste du traitement inchangé...
+    const groupedByKey = parsedData.reduce((acc, row, index) => {
+        if (!acc[row.key]) acc[row.key] = [];
+        row.index = index;
+        acc[row.key].push(row);
+        return acc;
+    }, {});
+
+    const groupedByAssignment = parsedData.reduce((acc, row) => {
+        if (!acc[row.AssignmentId]) acc[row.AssignmentId] = [];
+        acc[row.AssignmentId].push(row);
+        return acc;
+    }, {});
+
+    const groupedByHit = parsedData.reduce((acc, row) => {
+        if (!acc[row.hitid]) acc[row.hitid] = [];
+        acc[row.hitid].push(row);
+        return acc;
+    }, {});
+
+    Object.keys(groupedByKey).forEach(key => {
+        const group = groupedByKey[key];
+        const totalRows = group.length;
+
+        const smarterCounts = {};
+        const jugeCounts = {};
+
+        group.forEach(row => {
+            row.smarter.split(', ').forEach(attr => {
+                if (attr) smarterCounts[attr] = (smarterCounts[attr] || 0) + 1;
+            });
+            row.juge.split(', ').forEach(attr => {
+                if (attr) jugeCounts[attr] = (jugeCounts[attr] || 0) + 1;
+            });
+        });
+
+        group.forEach(row => {
+            const rowIndex = row.index;
+            const rowElement = resultTable.rows[rowIndex + 1];
+
+            sortedUniqueKeys.forEach(attr => {
+                let cellValue = '';
+                const smarterHasAttr = row.smarter.includes(attr);
+                const jugeHasAttr = row.juge.includes(attr);
+                const countSmarterCorrect = group.filter(r => r.smarter.includes(attr) && r.juge.includes(attr)).length;
+                const countSmarterIncorrect = group.filter(r => r.smarter.includes(attr) && !r.juge.includes(attr)).length;
+                const countMissing = group.filter(r => !r.smarter.includes(attr) && r.juge.includes(attr)).length;
+
+                if (smarterHasAttr && jugeHasAttr) {
+                    cellValue = countSmarterCorrect >= totalRows / 2 ? 'Maj' : 'Min';
+                } else if (smarterHasAttr && !jugeHasAttr) {
+                    cellValue = countSmarterIncorrect >= totalRows / 2 ? 'Maj' : 'Min';
+                } else if (!smarterHasAttr && jugeHasAttr) {
+                    cellValue = countMissing >= totalRows / 2 ? 'Maj' : 'Min';
+                }
+
+                const cell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === attr)];
+                if (cell) {
+                    cell.textContent = cellValue;
+                }
+            });
+        });
+    });
+
+    document.getElementById('notification').textContent = 'Le traitement des données est terminé.';
+    calculateHitIdAttributeStats();
+    remplir_wid();
+}
+
+
+//processDataDaily(brut_table); // Appeler la fonction avec les données déjà chargées.
+
+
+// Fonction pour remplir la liste déroulante avec les valeurs uniques de la colonne "workerid"
+function remplir_wid() {
+    const resultTable = document.getElementById('resultTable');
+    const workeridSet = new Set();
+
+    // Parcourir toutes les lignes du tableau (sauf l'en-tête)
+    for (let i = 1; i < resultTable.rows.length; i++) {
+        const workerid = resultTable.rows[i].cells[2].textContent.trim(); // 3ème colonne (index 2)
+        if (workerid) {
+            workeridSet.add(workerid);
+        }
+    }
+
+    const workeridListe = document.getElementById('workerid_liste');
+    workeridListe.innerHTML = ''; // Vider la liste avant de la remplir
+
+    // Ajouter "All" au début de la liste
+    const allOption = document.createElement('option');
+    allOption.value = 'all';
+    allOption.textContent = 'All';
+    workeridListe.appendChild(allOption);
+
+    // Ajouter les workerid uniques
+    workeridSet.forEach(workerid => {
+        const option = document.createElement('option');
+        option.value = workerid;
+        option.textContent = workerid;
+        workeridListe.appendChild(option);
+    });
+
+    //console.log('Liste workerid mise à jour:', Array.from(workeridSet));
+}
+
+
+
+// CALCULE STATE BE MANADALA
+function calculateStats() {
+    let selectedWorkerID = document.getElementById("workerid_liste").value;
+	//appelle a la recherche de matricule
+	//show_matricule();
+    if (selectedWorkerID === "all") {
+        all_stats(); // Appel de la nouvelle fonction si "All" est sélectionné
+    } else {
+        let resultTable = document.getElementById("resultTable");
+        let rows = resultTable.getElementsByTagName("tr");
+        let workerData = {}; // Stocke les stats par WorkerID
+        let attributeData = {}; // Stocke les stats par Attribut
+        let totalMaj = 0, totalMin = 0;
+		
+        for (let i = 1; i < rows.length; i++) { // Ignorer l'en-tête
+            let cols = rows[i].getElementsByTagName("td");
+            if (cols.length < 9) continue;
+            let workerID = cols[2].textContent.trim();
+
+            if (workerID !== selectedWorkerID) continue;
+
+            if (!workerData[workerID]) workerData[workerID] = { Maj: 0, Min: 0 };
+
+            for (let j = 8; j < cols.length; j++) {
+                let attribute = resultTable.rows[0].cells[j].textContent.trim();
+                if (["Jugement ASIN", "Jugement Assignement", "Jugement HitId"].includes(attribute)) continue;
+
+                let value = cols[j].textContent.trim();
+                if (!attributeData[attribute]) attributeData[attribute] = { Maj: 0, Min: 0 };
+
+                if (value === "Maj") {
+                    workerData[workerID].Maj++;
+                    attributeData[attribute].Maj++;
+                    totalMaj++;
+                } else if (value === "Min") {
+                    workerData[workerID].Min++;
+                    attributeData[attribute].Min++;
+                    totalMin++;
+                }
+            }
+        }
+		//calculateHitIdAttributeStats();
+        updateTable("accord_workerid", workerData, totalMaj, totalMin);
+        updateTable("accord_attribut", attributeData, totalMaj, totalMin);
+    }
+}
+
+/// function all state
+
+
+
+function all_stats() {
+    let resultTable = document.getElementById("resultTable");
+    let rows = resultTable.getElementsByTagName("tr");
+
+    let attributeData = {}; // Statistiques globales par attribut
+    let workerData = {};    // Statistiques par workerid
+    let totalMaj = 0, totalMin = 0;
+	//calculateHitIdAttributeStats();
+    // Vider les anciens tableaux
+    document.getElementById("accord_workerid").getElementsByTagName("tbody")[0].innerHTML = "";
+    document.getElementById("accord_attribut").getElementsByTagName("tbody")[0].innerHTML = "";
+
+    for (let i = 1; i < rows.length; i++) {
+        let cols = rows[i].getElementsByTagName("td");
+        if (cols.length < 9) continue;
+
+        let workerId = cols[2].textContent.trim(); // 3e colonne : workerId
+        if (!workerData[workerId]) {
+            workerData[workerId] = { Maj: 0, Min: 0 };
+        }
+
+        for (let j = 8; j < cols.length; j++) {
+            let attribute = resultTable.rows[0].cells[j].textContent.trim();
+            if (["Jugement ASIN", "Jugement Assignement", "Jugement HitId"].includes(attribute)) continue;
+
+            let value = cols[j].textContent.trim();
+
+            if (!attributeData[attribute]) attributeData[attribute] = { Maj: 0, Min: 0 };
+
+            if (value === "Maj") {
+                attributeData[attribute].Maj++;
+                totalMaj++;
+                workerData[workerId].Maj++;
+            } else if (value === "Min") {
+                attributeData[attribute].Min++;
+                totalMin++;
+                workerData[workerId].Min++;
+            }
+        }
+    }
+
+    // Mise à jour du tableau accord_attribut
+    updateTable("accord_attribut", attributeData, totalMaj, totalMin);
+
+    // Mise à jour du tableau accord_workerid
+    // Mise à jour du tableau accord_workerid via updateTable (pour appliquer la colorisation)
+    updateTable("accord_workerid", workerData, totalMaj, totalMin);
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/// function all state
+
+function updateTable(tableID, data, totalMaj, totalMin) {
+    let table = document.getElementById(tableID).getElementsByTagName("tbody")[0];
+    table.innerHTML = "";
+    let totalRow = { Maj: 0, Min: 0 };
+
+    for (let key in data) {
+    let maj = data[key].Maj;
+    let min = data[key].Min;
+    totalRow.Maj += maj;
+    totalRow.Min += min;
+    let total = maj + min;
+    let tauxAccord = total > 0 ? ((maj / total) * 100).toFixed(2) : "0.00";
+    let tauxDesaccord = total > 0 ? ((min / total) * 100).toFixed(2) : "0.00";
+
+    // === Gestion des couleurs conditionnelles ===
+    let majMinStyle = ""; // Par défaut, pas de couleur
+
+    let tauxAccordNum = parseFloat(tauxAccord);
+
+    if (tauxAccordNum >= 90) {
+        // Vert moyen lisible pour ≥ 90%
+        majMinStyle = 'style="background-color: #81c784;"';  
+    } else if (tauxAccordNum >= 80 && tauxAccordNum < 90) {
+        // Vert clair pour 80% - 89.99%
+        majMinStyle = 'style="background-color: #c8e6c9;"';  
+    } else {
+        // Rouge foncé mais visible pour < 80%
+        majMinStyle = 'style="background-color: #e57373;"';  
+    }
+    // === Fin de gestion des couleurs conditionnelles ===
+
+    let row = `<tr>
+        <td>${key}</td>
+        <td ${majMinStyle}>${maj}</td>
+        <td ${majMinStyle}>${min}</td>
+        <td ${majMinStyle}>${tauxAccord}%</td>
+        <td ${majMinStyle}>${tauxDesaccord}%</td>
+    </tr>`;
+    table.innerHTML += row;
+}
+
+    let tauxAccordTotal = (totalRow.Maj + totalRow.Min) > 0 ? ((totalRow.Maj / (totalRow.Maj + totalRow.Min)) * 100).toFixed(2) + "%" : "0.00%";
+    let tauxDesaccordTotal = (totalRow.Maj + totalRow.Min) > 0 ? ((totalRow.Min / (totalRow.Maj + totalRow.Min)) * 100).toFixed(2) + "%" : "0.00%";
+
+    table.innerHTML += `<tr><td><strong>Total:</strong></td><td>${totalRow.Maj}</td><td>${totalRow.Min}</td><td></td><td></td></tr>`;
+    table.innerHTML += `<tr><td><strong>Pourcentage:</strong></td><td>${tauxAccordTotal}</td><td>${tauxDesaccordTotal}</td><td></td><td></td></tr>`;
+}
+
+
+//ACCORD HIT ID par ATTRIBUT
+function calculateHitIdAttributeStats() {
+    let resultTable = document.getElementById("resultTable");
+    let rows = resultTable.getElementsByTagName("tr");
+
+    if (rows.length < 2) return;
+
+    let headerCells = resultTable.rows[0].cells;
+    let validAttributes = [];
+
+    // 1. Déterminer les colonnes attributs valides à partir de la 9e colonne
+    for (let j = 8; j < headerCells.length; j++) {
+        let attr = headerCells[j].textContent.trim();
+        if (!["Jugement ASIN", "Jugement Assignement", "Jugement HitId"].includes(attr)) {
+            validAttributes.push({ index: j, name: attr });
+        }
+    }
+
+    // 2. Collecte des données par hitid et attribut
+    let hitidData = {};
+
+    for (let i = 1; i < rows.length; i++) {
+        let cols = rows[i].getElementsByTagName("td");
+        if (cols.length < 9) continue;
+
+        let hitid = cols[0].textContent.trim();
+        if (!hitidData[hitid]) {
+            hitidData[hitid] = { totalMaj: 0, totalMin: 0 };
+        }
+
+        for (let attr of validAttributes) {
+            let value = cols[attr.index].textContent.trim();
+            if (!hitidData[hitid][attr.name]) hitidData[hitid][attr.name] = { Maj: 0, Min: 0 };
+
+            if (value === "Maj") {
+                hitidData[hitid][attr.name].Maj++;
+                hitidData[hitid].totalMaj++;
+            } else if (value === "Min") {
+                hitidData[hitid][attr.name].Min++;
+                hitidData[hitid].totalMin++;
+            }
+        }
+    }
+
+    // 3. Construction de l’en-tête dynamique
+    let table = document.getElementById("accord_hitid_attribut");
+    let thead = table.getElementsByTagName("thead")[0];
+    let tbody = table.getElementsByTagName("tbody")[0];
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+
+    let headerRow = "<tr><th>HitID</th>";
+    for (let attr of validAttributes) {
+        headerRow += `<th>${attr.name}</th>`;
+    }
+    headerRow += "</tr>";
+    thead.innerHTML = headerRow;
+
+    // 4. Construction du corps avec colorisation avancée
+    for (let hitid in hitidData) {
+        let rowData = hitidData[hitid];
+        let totalLine = rowData.totalMaj + rowData.totalMin;
+
+        let cellObjects = [];
+        let nonEmptyCells = 0;
+        let maxMaj = 0;
+
+        // Préparation des cellules
+        for (let attr of validAttributes) {
+            let stats = rowData[attr.name] || { Maj: 0, Min: 0 };
+            if ((stats.Maj + stats.Min) > 0 && totalLine > 0) {
+                nonEmptyCells++;
+                maxMaj = Math.max(maxMaj, stats.Maj);
+                let tauxMaj = ((stats.Maj / totalLine) * 100).toFixed(2) + "%";
+                let tauxMin = ((stats.Min / totalLine) * 100).toFixed(2) + "%";
+
+                //let content = `Maj: ${stats.Maj}; ${tauxMaj}<br>Min: ${stats.Min}; ${tauxMin}`;
+				let content = `Maj: ${stats.Maj} || ${tauxMaj}<br>Min: ${stats.Min} || ${tauxMin}`;
+                cellObjects.push({ content, empty: false, Maj: stats.Maj });
+            } else {
+                cellObjects.push({ content: "", empty: true, Maj: 0 });
+            }
+        }
+
+        // Génération de la ligne HTML
+        let rowHtml = `<tr><td>${hitid}</td>`;
+
+        for (let i = 0; i < cellObjects.length; i++) {
+            let cell = cellObjects[i];
+
+            if (cell.empty) {
+                rowHtml += `<td></td>`;
+            } else {
+                let style = "";
+
+                if (nonEmptyCells === 1) {
+                    // Vert clair si une seule cellule
+                    style = 'style="background-color: #388e3c;"'; // ← vert clair
+                } else {
+                    if (cell.Maj === maxMaj) {
+                        style = 'style="background-color: #a5d6a7;"'; // ← vert clair (max Maj)
+                    } else {
+                        // Dégradé vers rouge clair
+                        let intensity = 1 - (cell.Maj / maxMaj); // 0 (vert) → 1 (rouge)
+                        let r = Math.round(255 * intensity);
+                        let g = Math.round(230 - (80 * intensity));
+                        let b = Math.round(230 - (100 * intensity));
+                        style = `style="background-color: rgb(${r},${g},${b});"`; // ← dégradé rouge clair
+                    }
+                }
+
+                rowHtml += `<td ${style}>${cell.content}</td>`;
+            }
+        }
+
+        rowHtml += `</tr>`;
+        tbody.innerHTML += rowHtml;
+    }
+}
+
+
+
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    const tableIds = ["accord_workerid", "accord_attribut", "accord_hitid_attribut"];
+
+    tableIds.forEach((id) => {
+        const table = document.getElementById(id);
+        if (!table) return;
+
+        table.addEventListener("dblclick", function () {
+            const range = document.createRange();
+            range.selectNode(table);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            try {
+                document.execCommand("copy");
+                selection.removeAllRanges();
+                showCopyNotification(`Table ${id} copiée dans le presse-papier`);
+            } catch (err) {
+                alert("Erreur lors de la copie.");
+            }
+        });
+    });
+
+   function showCopyNotification(message) {
+    const notif = document.createElement("div");
+    notif.textContent = message;
+    notif.style.position = "fixed";
+    notif.style.top = "50%";
+    notif.style.left = "50%";
+    notif.style.transform = "translate(-50%, -50%)"; // Centrer la notification
+    notif.style.padding = "10px 20px";
+    notif.style.backgroundColor = "#4caf50"; // ✅ Vert clair
+    notif.style.color = "#fff";
+    notif.style.borderRadius = "5px";
+    notif.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.2)";
+    notif.style.zIndex = 9999;
+    notif.style.fontSize = "14px";
+
+    document.body.appendChild(notif);
+
+    setTimeout(() => {
+        notif.remove();
+    }, 2500);
+}
+
+});
+
+function show_matricule() {
+    const workerSelect = document.getElementById("workerid_liste");
+    const selectedWorkerId = workerSelect.value;
+    const rawList = document.getElementById("liste_smarter").value.trim();
+    const matriculeDisplay = document.getElementById("matricule_value");
+
+    // Si vide, ignorer
+    if (selectedWorkerId === "All") {
+        matriculeDisplay.textContent = "Tout";
+        return;
+    }
+
+    if (!rawList) {
+        matriculeDisplay.textContent = "N/A";
+        return;
+    }
+
+    // Convertir la liste en objet clé-valeur
+    const lines = rawList.split(/\r?\n/);
+    const map = {};
+    lines.forEach(line => {
+        const [uuid, matricule] = line.split(/\t+/);
+        if (uuid && matricule) {
+            map[uuid.trim()] = matricule.trim();
+        }
+    });
+
+    // Chercher le matricule
+    if (map[selectedWorkerId]) {
+        matriculeDisplay.textContent = map[selectedWorkerId];
+    } else {
+        matriculeDisplay.textContent = "N/A";
+    }
+}
+
+
+//  Afficher une notification  "table attribut accord" terminé
+
+let notif = document.getElementById("accordNotification");
+if (!notif) {
+    notif = document.createElement("div");
+    notif.id = "accordNotification";
+    notif.style.marginTop = "10px";
+    notif.style.color = "green";
+    notif.style.fontWeight = "bold";
+    resultTable.parentNode.insertBefore(notif, resultTable.nextSibling); // ou place où tu veux
+}
+notif.textContent = "La table Accord HITID Attribut a été générée.";
+
+
+
+//afficher  ou masquer la table "accord_hitid_attribut"
+
+document.addEventListener("DOMContentLoaded", function() {
+    const checkbox = document.getElementById("toggleDetails");
+    const table = document.getElementById("accord_hitid_attribut");
+
+    // Masquer la table par défaut
+    table.style.display = "none";
+
+    checkbox.addEventListener("change", function() {
+      if (checkbox.checked) {
+        table.style.display = "table";
+      } else {
+        table.style.display = "none";
+      }
+    });
+  });
+
+		
+</script>
+
+</body>
+</html>

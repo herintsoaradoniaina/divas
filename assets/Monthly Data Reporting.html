@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attributs Consensus</title>
+    <script src="papaparse_rado.js"></script>
+	<link rel="stylesheet" href="styles.css">
+    <style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 30px; /* Ajustez cette valeur pour contrôler l'espace entre les tables */
+    }
+    table, th, td {
+        border: 1px solid #ccc;
+    }
+    th, td {
+        padding: 8px;
+        text-align: left;
+    }
+</style>
+</head>
+<body>
+
+<h1>Attributs Consensus</h1>
+<button onclick="process_attributs_consensus()">Attributs Consensus</button>
+<button onclick="process_workerid_consensus()">Worker ID Consensus</button>
+<button onclick="process_workerid_accuracy()">Worker ID Accuracy</button>
+
+
+
+<table id="SummaryTable">
+    <caption>SUMMARY TABLE</caption> <!-- Légende ajoutée ici -->
+    <thead>
+        <tr>
+            <th>Total agreement in ... processed ASINs</th>
+            <th>Count</th>
+            <th>Percentage</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Correct Majority</td>
+            <td id="correctMajorityCount"></td> <!-- Valeur laissée vide -->
+            <td id="correctMajorityPercentage"></td> <!-- Valeur laissée vide -->
+        </tr>
+        <tr>
+            <td>Correct Minority</td>
+            <td id="correctMinorityCount"></td> <!-- Valeur laissée vide -->
+            <td id="correctMinorityPercentage"></td> <!-- Valeur laissée vide -->
+        </tr>
+        <tr>
+            <td>Incorrect Majority</td>
+            <td id="incorrectMajorityCount"></td> <!-- Valeur laissée vide -->
+            <td id="incorrectMajorityPercentage"></td> <!-- Valeur laissée vide -->
+        </tr>
+        <tr>
+            <td>Incorrect Minority</td>
+            <td id="incorrectMinorityCount"></td> <!-- Valeur laissée vide -->
+            <td id="incorrectMinorityPercentage"></td> <!-- Valeur laissée vide -->
+        </tr>
+        <tr style="font-weight: bold;">
+            <td>Total:</td>
+            <td id="totalCount"></td> <!-- Valeur laissée vide -->
+            <td></td> <!-- Colonne pourcentage vide -->
+        </tr>
+    </tbody>
+</table>
+
+<!-- Tableau où les résultats seront affichés -->
+<table id="table_attribut_consensus">
+    <thead>
+        <tr>
+            <th>Attributs</th>
+            <th>Correct Majority</th>
+            <th>Correct Minority</th>
+            <th>Incorrect Majority</th>
+            <th>Incorrect Minority</th>
+            <th>Total</th>
+            <th>Consensus Correctness (%)</th>
+            <th>Attribute Error Rate (%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Les données seront insérées ici -->
+    </tbody>
+</table>
+<table id="table_workerid_consensus">
+    <thead>
+        <tr>
+            <th>Worker ID</th>
+            <th>Correct Majority</th>
+            <th>Correct Minority</th>
+            <th>Incorrect Majority</th>
+            <th>Incorrect Minority</th>
+            <th>Total</th>
+            <th>Consensus Correctness (%)</th>
+            <th>Attribute Error Rate (%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Les données seront insérées ici -->
+    </tbody>
+</table>
+
+
+<table id="TrendsTable">
+    <caption>TRENDS TABLE</caption> <!-- Légende ajoutée ici -->
+    <tbody>
+        <tr>
+            <td>Unique HITIDs:</td>
+            <td></td> <!-- Valeur laissée vide -->
+        </tr>
+        <tr>
+            <td>WorkerIDs:</td>
+            <td></td> <!-- Valeur à remplir dynamiquement -->
+        </tr>
+        <tr>
+            <td>Total ASIN Analyzed:</td>
+            <td></td> <!-- Valeur à remplir dynamiquement -->
+        </tr>
+        <tr>
+            <td>Correct ASINs:</td>
+            <td></td> <!-- Valeur à remplir dynamiquement -->
+        </tr>
+        <tr>
+            <td>Incorrect ASINs:</td>
+            <td></td> <!-- Valeur à remplir dynamiquement -->
+        </tr>
+        <tr>
+            <td>Global Accuracy:</td>
+            <td></td> <!-- Valeur à remplir dynamiquement -->
+        </tr>
+    </tbody>
+</table>
+
+
+<table id="table_workerid_accuracy">
+    <caption></caption>
+    <thead>
+        <tr>
+            <th>Worker ID</th>
+            <th>Correct</th>
+            <th>Incorrect</th>
+            <th>Total</th>
+            <th>Accuracy (%)</th>
+            <th>Error Rate (%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Les lignes seront ajoutées ici -->
+    </tbody>
+</table>
+
+
+
+<script>
+    function process_attributs_consensus() {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.tsv';
+
+    fileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+
+        if (!file) {
+            alert('Veuillez sélectionner un fichier.');
+            return;
+        }
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            delimiter: "\t",
+            complete: function(results) {
+                const data = results.data;
+                const aggregatedData = {};
+
+                data.forEach(row => {
+                    const attribute = row['Attributs'];
+                    const correctMajority = parseInt(row['Correct Majority']) || 0;
+                    const correctMinority = parseInt(row['Correct Minority']) || 0;
+                    const incorrectMajority = parseInt(row['Incorrect Majority']) || 0;
+                    const incorrectMinority = parseInt(row['Incorrect Minority']) || 0;
+
+                    if (!aggregatedData[attribute]) {
+                        aggregatedData[attribute] = {
+                            correctMajority: 0,
+                            correctMinority: 0,
+                            incorrectMajority: 0,
+                            incorrectMinority: 0,
+                            total: 0
+                        };
+                    }
+
+                    aggregatedData[attribute].correctMajority += correctMajority;
+                    aggregatedData[attribute].correctMinority += correctMinority;
+                    aggregatedData[attribute].incorrectMajority += incorrectMajority;
+                    aggregatedData[attribute].incorrectMinority += incorrectMinority;
+                    aggregatedData[attribute].total += correctMajority + correctMinority + incorrectMajority + incorrectMinority;
+                });
+
+                let totalOverall = 0;
+                let correctMajorityOverall = 0;
+                let correctMinorityOverall = 0;
+                let incorrectMajorityOverall = 0;
+                let incorrectMinorityOverall = 0;
+                let correctOverall = 0;
+                let incorrectOverall = 0;
+
+                for (const attribute in aggregatedData) {
+                    totalOverall += aggregatedData[attribute].total;
+                    correctMajorityOverall += aggregatedData[attribute].correctMajority;
+                    correctMinorityOverall += aggregatedData[attribute].correctMinority;
+                    incorrectMajorityOverall += aggregatedData[attribute].incorrectMajority;
+                    incorrectMinorityOverall += aggregatedData[attribute].incorrectMinority;
+                    correctOverall += aggregatedData[attribute].correctMajority + aggregatedData[attribute].correctMinority;
+                    incorrectOverall += aggregatedData[attribute].incorrectMajority + aggregatedData[attribute].incorrectMinority;
+                }
+
+                const tbody = document.querySelector('#table_attribut_consensus tbody');
+                tbody.innerHTML = '';
+
+                // Création de la légende du tableau
+                const table_attribut_consensus = document.getElementById('table_attribut_consensus');
+                const caption = table_attribut_consensus.createCaption();
+                caption.textContent = 'CONSENSUS ATTRIBUTS';
+
+                for (const attribute in aggregatedData) {
+                    const totals = aggregatedData[attribute];
+                    const total = totals.total;
+
+                    if (total === 0) continue;
+
+                    const correctTotal = totals.correctMajority + totals.correctMinority;
+                    const incorrectTotal = totals.incorrectMajority + totals.incorrectMinority;
+
+                    const consensusCorrectness = ((correctTotal / totalOverall) * 100).toFixed(2).replace('.', ',');
+                    const attributeErrorRate = ((incorrectTotal / totalOverall) * 100).toFixed(2).replace('.', ',');
+
+                    const row = `
+                        <tr>
+                            <td>${attribute}</td>
+                            <td>${totals.correctMajority}</td>
+                            <td>${totals.correctMinority}</td>
+                            <td>${totals.incorrectMajority}</td>
+                            <td>${totals.incorrectMinority}</td>
+                            <td>${total}</td>
+                            <td>${consensusCorrectness}%</td>
+                            <td>${attributeErrorRate}%</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                }
+
+                const totalConsensusCorrectness = ((correctOverall / totalOverall) * 100).toFixed(2).replace('.', ',');
+                const totalAttributeErrorRate = ((incorrectOverall / totalOverall) * 100).toFixed(2).replace('.', ',');
+
+                const totalRow = `
+                    <tr style="font-weight: bold;">
+                        <td>Totale</td>
+                        <td>${correctMajorityOverall}</td>
+                        <td>${correctMinorityOverall}</td>
+                        <td>${incorrectMajorityOverall}</td>
+                        <td>${incorrectMinorityOverall}</td>
+                        <td>${totalOverall}</td>
+                        <td>${totalConsensusCorrectness}%</td>
+                        <td>${totalAttributeErrorRate}%</td>
+                    </tr>
+                `;
+                tbody.innerHTML += totalRow;
+
+                // Remplissage de la SummaryTable
+                const totalCount = correctMajorityOverall + correctMinorityOverall + incorrectMajorityOverall + incorrectMinorityOverall;
+                document.getElementById('correctMajorityCount').textContent = correctMajorityOverall; // Count
+                document.getElementById('correctMinorityCount').textContent = correctMinorityOverall; // Count
+                document.getElementById('incorrectMajorityCount').textContent = incorrectMajorityOverall; // Count
+                document.getElementById('incorrectMinorityCount').textContent = incorrectMinorityOverall; // Count
+                document.getElementById('totalCount').textContent = totalCount; // Total Count
+
+                // Calcul et affichage des pourcentages
+                document.getElementById('correctMajorityPercentage').textContent = ((correctMajorityOverall / totalCount) * 100).toFixed(2).replace('.', ',') + '%';
+                document.getElementById('correctMinorityPercentage').textContent = ((correctMinorityOverall / totalCount) * 100).toFixed(2).replace('.', ',') + '%';
+                document.getElementById('incorrectMajorityPercentage').textContent = ((incorrectMajorityOverall / totalCount) * 100).toFixed(2).replace('.', ',') + '%';
+                document.getElementById('incorrectMinorityPercentage').textContent = ((incorrectMinorityOverall / totalCount) * 100).toFixed(2).replace('.', ',') + '%';
+            }
+        });
+    });
+
+    // Simule un clic sur l'élément fileInput pour ouvrir la boîte de dialogue
+    fileInput.click();
+}
+
+	
+	//generate consensus worker id
+	
+	function process_workerid_consensus() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.tsv';
+
+        fileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+
+            if (!file) {
+                alert('Veuillez sélectionner un fichier.');
+                return;
+            }
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                delimiter: "\t",
+                complete: function(results) {
+                    const data = results.data;
+                    const aggregatedData = {};
+
+                    data.forEach(row => {
+                        const workerid = row['workerid'];
+                        const correctMajority = parseInt(row['Correct Majority']) || 0;
+                        const correctMinority = parseInt(row['Correct Minority']) || 0;
+                        const incorrectMajority = parseInt(row['Incorrect Majority']) || 0;
+                        const incorrectMinority = parseInt(row['Incorrect Minority']) || 0;
+
+                        if (!aggregatedData[workerid]) {
+                            aggregatedData[workerid] = {
+                                correctMajority: 0,
+                                correctMinority: 0,
+                                incorrectMajority: 0,
+                                incorrectMinority: 0,
+                                total: 0
+                            };
+                        }
+
+                        aggregatedData[workerid].correctMajority += correctMajority;
+                        aggregatedData[workerid].correctMinority += correctMinority;
+                        aggregatedData[workerid].incorrectMajority += incorrectMajority;
+                        aggregatedData[workerid].incorrectMinority += incorrectMinority;
+                        aggregatedData[workerid].total += correctMajority + correctMinority + incorrectMajority + incorrectMinority;
+                    });
+
+                    let totalOverall = 0;
+                    let correctMajorityOverall = 0;
+                    let correctMinorityOverall = 0;
+                    let incorrectMajorityOverall = 0;
+                    let incorrectMinorityOverall = 0;
+                    let correctOverall = 0;
+                    let incorrectOverall = 0;
+
+                    for (const workerid in aggregatedData) {
+                        totalOverall += aggregatedData[workerid].total;
+                        correctMajorityOverall += aggregatedData[workerid].correctMajority;
+                        correctMinorityOverall += aggregatedData[workerid].correctMinority;
+                        incorrectMajorityOverall += aggregatedData[workerid].incorrectMajority;
+                        incorrectMinorityOverall += aggregatedData[workerid].incorrectMinority;
+                        correctOverall += aggregatedData[workerid].correctMajority + aggregatedData[workerid].correctMinority;
+                        incorrectOverall += aggregatedData[workerid].incorrectMajority + aggregatedData[workerid].incorrectMinority;
+                    }
+
+                    const tbody = document.querySelector('#table_workerid_consensus tbody');
+                    tbody.innerHTML = '';
+
+                    // Création de la légende du tableau
+                    const table_workerid_consensus = document.getElementById('table_workerid_consensus');
+                    const caption = table_workerid_consensus.createCaption();
+                    caption.textContent = 'CONSENSUS WORKER ID';
+
+                    for (const workerid in aggregatedData) {
+                        const totals = aggregatedData[workerid];
+                        const total = totals.total;
+
+                        if (total === 0) continue;
+
+                        const correctTotal = totals.correctMajority + totals.correctMinority;
+                        const incorrectTotal = totals.incorrectMajority + totals.incorrectMinority;
+
+                        const consensusCorrectness = ((correctTotal / totalOverall) * 100).toFixed(2).replace('.', ',');
+                        const workeridErrorRate = ((incorrectTotal / totalOverall) * 100).toFixed(2).replace('.', ',');
+
+                        const row = `
+                            <tr>
+                                <td>${workerid}</td>
+                                <td>${totals.correctMajority}</td>
+                                <td>${totals.correctMinority}</td>
+                                <td>${totals.incorrectMajority}</td>
+                                <td>${totals.incorrectMinority}</td>
+                                <td>${total}</td>
+                                <td>${consensusCorrectness}%</td>
+                                <td>${workeridErrorRate}%</td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    }
+
+                    const totalConsensusCorrectness = ((correctOverall / totalOverall) * 100).toFixed(2).replace('.', ',');
+                    const totalworkeridErrorRate = ((incorrectOverall / totalOverall) * 100).toFixed(2).replace('.', ',');
+
+                    const totalRow = `
+                        <tr style="font-weight: bold;">
+                            <td>Totale</td>
+                            <td>${correctMajorityOverall}</td>
+                            <td>${correctMinorityOverall}</td>
+                            <td>${incorrectMajorityOverall}</td>
+                            <td>${incorrectMinorityOverall}</td>
+                            <td>${totalOverall}</td>
+                            <td>${totalConsensusCorrectness}%</td>
+                            <td>${totalworkeridErrorRate}%</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += totalRow;
+                }
+            });
+        });
+
+        // Simule un clic sur l'élément fileInput pour ouvrir la boîte de dialogue
+        fileInput.click();
+    }
+	
+	
+	
+	
+// Crée un input de fichier en dehors de la fonction pour réutiliser
+const fileInput = document.createElement('input');
+fileInput.type = 'file';
+fileInput.accept = '.tsv';
+
+fileInput.addEventListener('change', function(event) {
+    const file = event.target.files[0];
+
+    if (!file) {
+        alert('Veuillez sélectionner un fichier.');
+        return;
+    }
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        delimiter: "\t",
+        complete: function(results) {
+            const data = results.data;
+            const aggregatedData = {};
+
+            // Vérification si les données sont vides
+            if (data.length === 0) {
+                alert('Le fichier ne contient aucune donnée.');
+                return;
+            }
+
+            data.forEach(row => {
+                const workerid = row['workerid'];
+                const correct = parseInt(row['Correct']) || 0;
+                const incorrect = parseInt(row['Incorrecte']) || 0; // Corriger ici
+
+                if (!aggregatedData[workerid]) {
+                    aggregatedData[workerid] = {
+                        correct: 0,
+                        incorrect: 0,
+                        total: 0
+                    };
+                }
+
+                aggregatedData[workerid].correct += correct;
+                aggregatedData[workerid].incorrect += incorrect; 
+                aggregatedData[workerid].total += correct + incorrect;
+            });
+
+            let totalOverall = 0;
+            let correctOverall = 0;
+            let incorrectOverall = 0;
+
+            for (const workerid in aggregatedData) {
+                totalOverall += aggregatedData[workerid].total;
+                correctOverall += aggregatedData[workerid].correct;
+                incorrectOverall += aggregatedData[workerid].incorrect;
+            }
+
+            const tbody = document.querySelector('#table_workerid_accuracy tbody');
+            tbody.innerHTML = '';
+
+            // Création de la légende du tableau
+            const table_workerid_accuracy = document.getElementById('table_workerid_accuracy');
+            const caption = table_workerid_accuracy.createCaption();
+            caption.textContent = 'ACCURACY WORKER ID';
+
+            for (const workerid in aggregatedData) {
+                const totals = aggregatedData[workerid];
+                const total = totals.total;
+
+                if (total === 0) continue;
+
+                // Calculs de précision et d'erreur
+                const accuracy = ((totals.correct / total) * 100).toFixed(2).replace('.', ',');
+                const errors = ((totals.incorrect / total) * 100).toFixed(2).replace('.', ',');
+
+                const row = `
+                    <tr>
+                        <td>${workerid}</td>
+                        <td>${totals.correct}</td>
+                        <td>${totals.incorrect}</td>
+                        <td>${total}</td>
+                        <td>${accuracy}%</td>
+                        <td>${errors}%</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            }
+
+            const totalConsensusCorrectness = ((correctOverall / totalOverall) * 100).toFixed(2).replace('.', ',');
+            const totalworkeridErrorRate = ((incorrectOverall / totalOverall) * 100).toFixed(2).replace('.', ',');
+
+            const totalRow = `
+                <tr style="font-weight: bold;">
+                    <td>Totale</td>
+                    <td>${correctOverall}</td>
+                    <td>${incorrectOverall}</td>
+                    <td>${totalOverall}</td>
+                    <td>${totalConsensusCorrectness}%</td>
+                    <td>${totalworkeridErrorRate}%</td>
+                </tr>
+            `;
+            tbody.innerHTML += totalRow;
+
+            // Remplissage de TrendsTable
+            const trendsTable = document.getElementById('TrendsTable');
+            const trendsBody = trendsTable.querySelector('tbody');
+            
+            // Remplissage des valeurs dans la deuxième colonne
+            trendsBody.rows[1].cells[1].textContent = Object.keys(aggregatedData).length; // WorkerIDs
+            trendsBody.rows[2].cells[1].textContent = totalOverall; // Total ASIN Analyzed
+            trendsBody.rows[3].cells[1].textContent = correctOverall; // Correct ASINs
+            trendsBody.rows[4].cells[1].textContent = incorrectOverall; // Incorrect ASINs
+            trendsBody.rows[5].cells[1].textContent = `${totalConsensusCorrectness}%`; // Global Accuracy
+        }
+    });
+});
+
+
+
+
+// Fonction déclenchée par le bouton
+function process_workerid_accuracy() {
+    // Simule un clic sur l'élément fileInput pour ouvrir la boîte de dialogue
+    fileInput.click();
+}
+
+
+
+
+async function copyTableToClipboard(table) {
+    if (!table) {
+        console.error('Table non trouvée.');
+        return;
+    }
+
+    // Vérifier si la table est vide
+    if (!table.innerText.trim()) {
+        alert('Table vide');
+        return;
+    }
+
+    try {
+        // Obtenir le contenu de la table
+        const tableText = table.innerText;
+
+        // Copier le contenu dans le presse-papiers en utilisant l'API Clipboard
+        await navigator.clipboard.writeText(tableText);
+
+        // Obtenir l'ID de la table
+        const tableId = table.id || 'sans ID';
+
+        // Afficher une notification pour l'utilisateur avec l'ID de la table
+        alert(`Table ${tableId} copiée dans le presse-papiers!`);
+    } catch (err) {
+        console.error('Erreur lors de la copie dans le presse-papiers:', err);
+    }
+}
+
+// Ajouter l'événement click pour copier une table
+document.querySelectorAll('table').forEach(table => {
+    table.onclick = () => {
+        copyTableToClipboard(table);
+    };
+});
+
+
+</script>
+
+</body>
+</html>

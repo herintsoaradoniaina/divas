@@ -1,0 +1,2277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utilitaire Rapport Mensuel</title>
+    <script src="papaparse_rado.js"></script>
+    <link rel="stylesheet" href="styles.css">
+	 <style>
+        .file-input {
+            display: block;
+            margin-bottom: 20px;
+        }
+    </style>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+			color:White;
+        }
+        .file-input-label {
+            margin-right: 10px;
+            font-size: 12px;
+        }
+        .options-container {
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .options-container button,
+        .options-container label,
+        .options-container input[type="radio"] {
+            font-size: inherit;
+            margin-right: 10px;
+            margin-top: 5px;
+        }
+        .file-input {
+            display: inline-block;
+            margin-right: 20px;
+            font-size: 12px;
+        }
+        .main-content {
+            margin-top: 220px; /* Adjust this value to ensure the main content is not hidden */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+				
+		  #resultTable {
+			display: none;
+		  }
+			.notification {
+		position: fixed;
+		top: 55px; /* Positionné à 55px du haut de la page */
+		left: 50%; /* Centré horizontalement */
+		transform: translateX(-50%); /* Ajuste le centre pour la largeur du message */
+		background-color: #4caf50;
+		color: white;
+		padding: 10px;
+		border-radius: 5px;
+		display: none; /* Caché par défaut */
+		z-index: 1000; /* Assure qu'il est au-dessus des autres éléments */
+		font-size: 18px; /* Ajuste la taille du texte si nécessaire */
+		font-size bold: true
+		text-align: center; /* Centre le texte à l'intérieur du message */
+	  }
+	.hidden {
+		display: none;
+	}
+
+	.table-pair {
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.table-pair table {
+		width: 48%; /* Ajustez ce pourcentage si nécessaire */
+	}
+
+	highlight-error {
+        border: 2px solid red !important;
+        transition: border 0.3s ease;
+    }
+	
+	button {
+    padding: 8px 16px;
+    font-size: 12px; /* police légèrement réduite */
+    width: auto;
+    background-color: #444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+#dataAsin-data {
+    width: 98%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: 10px;      /* Hauteur de base réduite */
+    resize: vertical;      /* Permet d'étirer vers le bas */
+    padding: 8px;
+    font-size: 15px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+
+#layoutContainer {
+    display: flex;
+    flex-direction: row;
+    margin-top: 100px; /* laisse la place au header */
+}
+
+#sidebar {
+    width: 290px;
+    background-color: #222;
+    color: white;
+	
+    padding: 15px;
+    height: calc(100vh - 100px); /* plein écran - header */
+    overflow-y: auto;
+    position: sticky;
+    top: 100px;
+}
+
+#sidebar label:not(#radioContainer label),
+#sidebar select:not(#radioContainer select),
+#sidebar input:not(#radioContainer input),
+#sidebar button:not(#radioContainer button) {
+    display: block;
+    margin-bottom: 10px;
+    width: 100%;
+    font-size: 13px;
+}
+
+#sidebar button {
+    background-color: #444;
+}
+
+#contentArea {
+    flex: 1;
+    padding: 20px;
+    overflow-x: auto;
+}
+
+.main-content {
+    margin-top: 0 !important; /* car c'est déjà géré via #layoutContainer */
+}
+
+#radioContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0px;
+    padding: 0px;
+    white-space: nowrap;
+}
+
+  #radioContainer label {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+    color: white;
+    cursor: pointer;
+  }
+
+  #radioContainer input[type="radio"] {
+    margin-right: 10px;
+    accent-color: #007BFF; /* Bleu clair pour le bouton coché, supporté par Chrome/Edge/Firefox */
+  }
+
+  body {
+    background-color: #1e1e1e; /* Pour test sur fond noir */
+    font-family: sans-serif;
+  }
+  
+  
+  
+  #progressOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8); /* fond semi-transparent */
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+
+  #progressBox {
+    text-align: center;
+    color: white;
+    font-size: 2em;
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  #progressBox .icon {
+    font-size: 3em;
+    margin-bottom: 10px;
+    animation: pulse 1.2s infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Utilitaire Rapport Mensuel</h1>
+    </header>
+<div id="progressOverlay">
+  <div id="progressBox">
+    <div class="icon">⏳</div>
+    <div id="progressText">Traitement en cours... 0%</div>
+  </div>
+</div>
+    <div id="layoutContainer">
+        <!-- Barre latérale gauche -->
+        <div id="sidebar">
+            <div id="safidy">
+                <label for="dataType">Détails ASIN ou TSV:</label>
+                <select id="dataSource">
+                    <option value="detailAsin">Copie-Coller Details-ASIN</option>
+                    <option value="tsv_file">Fichier Compilé TSV</option>
+                </select>
+
+                <label for="indexType">Index:</label>
+					<select id="indextype">
+						<option value="camera_search">MR CS</option>
+						<option value="camera_search_irr">MR CS IRR</option>			
+						<option value="furniture">MR FURNITURE</option> 
+						<option value="furniture_irr">MR FURNITURE IRR</option>
+					</select>
+                <label for="picking_day">Sélectionner une date :</label>
+                <input type="date" id="picking_day" />
+
+                <label for="picking_index">Sélectionner une Index :</label>
+                <select id="picking_index">
+                    <option value="AIN-LMR-CAUI">AIN-LMR-CAUI</option>
+                    <option value="AIN-LMR-COUI">AIN-LMR-COUI</option>
+                    <option value="AIN-LMR-CBUI">AIN-LMR-CBUI</option>
+                    <option value="AIN-LMR-CBUI2">AIN-LMR-CBUI2</option>
+                    <option value="AIN-LMR-CODE">AIN-LMR-CODE</option>
+                    <option value="AIN-LMR-CADE">AIN-LMR-CADE</option>
+                    <option value="AIN-LMR-FAUI">AIN-LMR-FAUI</option>
+                    <option value="AIN-LMR-FOUI">AIN-LMR-FOUI</option>
+                    <option value="AIN-LMR-FBUI">AIN-LMR-FBUI</option>
+                    <option value="AIN-LMR-FBUI2">AIN-LMR-FBUI2</option>
+                    <option value="AIN-LMR-FADE">AIN-LMR-FADE</option>
+                    <option value="AIN-MTM-IRR">AIN-MTM-IRR</option>
+                </select>
+
+                <div id="fileInputs">
+                    <label for="fileInput">Fichier TSV du Détails ASIN:</label>
+                    <input type="file" id="fileInput" class="file-input" accept=".tsv">
+                </div>
+
+                <div id="textAreaContainer" style="display: none;">
+					<label for="dataAsin-data">Détails ASIN :</label>
+					<textarea id="dataAsin-data" rows="10" placeholder="Collez ici les détails ASIN..."></textarea>
+				</div>
+
+                <button id="Doit">Lancer le Process</button>
+				<div id="radioContainer">
+				  <label><input type="radio" name="tableSelector" value="consensusAttributDetailed">Consensus par Attribut</label>
+				  <label><input type="radio" name="tableSelector" value="consensusWorkerID">Consensus par WorkerID</label>
+				  <label><input type="radio" name="tableSelector" value="accuracyWorkerID">Accuracy WorkerID</label>
+				  <label><input type="radio" name="tableSelector" value="error_table">Erreurs BRUTES</label>
+				  <label><input type="radio" name="tableSelector" value="Nb_Erreurs_WorkerID">Erreurs Attributs/WorkerID</label>
+				  <label><input type="radio" name="tableSelector" value="agreementTable_summaryTable">Agréement/Résumé</label>
+				  <label><input type="radio" name="tableSelector" value="CRJ_Table1_CRJ_Table2">Score Globale</label>
+				</div>
+				
+                
+                <button id="exportButton">Exporter Fichier Brute</button>
+				
+
+                <div id="notification" class="notification">
+                    Traitement terminé ! La table "resultTable" a été créée.
+                </div>
+            </div>
+        </div>
+
+        <!-- Zone des tableaux -->
+        <div id="contentArea">
+            <div class="main-content" id="result">
+                <div class="table-pair">
+                    <table id="CRJ_Table1" class="hidden">
+                        <tr>
+                            <th>Assignment échantillonné</th>
+                            <th>Taux d'erreurs</th>
+                            <th>Assignment KO</th>
+                            <th>Détail</th>
+                        </tr>
+                    </table>
+
+                    <table id="CRJ_Table2" class="hidden">
+                        <tr>
+                            <th>HIT contrôlé</th>
+                            <th>HIT KO</th>
+                            <th>CORRECT_MAJORITY</th>
+                            <th>CORRECT_MINORITY</th>
+                            <th>INCORRECT_MAJORITY</th>
+                            <th>INCORRECT_MINORITY</th>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="table-pair">
+                    <table id="agreementTable" class="hidden"></table>
+                    <table id="summaryTable" class="hidden"></table>
+                </div>
+
+                <table id="accuracyWorkerID" class="hidden"></table>
+                <table id="consensusWorkerID" class="hidden"></table>
+                <table id="consensusAttributDetailed" class="hidden"></table>
+                <table id="Nb_Erreurs_WorkerID" class="hidden">
+                    <tr id="headerRow"></tr>
+                </table>
+                <table id="resultTable"></table>
+                <table id="error_table" class="hidden"></table>
+            </div>
+        </div>
+    </div>
+</body>
+
+
+<script>
+// action suivant le type de données collée ou importée
+document.getElementById('dataSource').addEventListener('change', function () {
+    const selectedValue = this.value;
+    const fileInputDiv = document.getElementById('fileInputs');
+    const textAreaDiv = document.getElementById('textAreaContainer');
+
+    if (selectedValue === 'detailAsin') {
+        fileInputDiv.style.display = 'none';
+        textAreaDiv.style.display = 'block';
+    } else if (selectedValue === 'tsv_file') {
+        fileInputDiv.style.display = 'block';
+        textAreaDiv.style.display = 'none';
+    }
+});
+
+// Exécution au chargement pour appliquer l'état initial selon l'option sélectionnée par défaut
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('dataSource').dispatchEvent(new Event('change'));
+});
+
+
+// Action du bouton "Doit"
+document.getElementById('Doit').addEventListener('click', function () {
+    const sourceType = document.getElementById('dataSource').value;
+
+    // Réinitialise les bordures visuelles
+    document.getElementById('dataAsin-data').style.border = '';
+    document.getElementById('fileInput').style.border = '';
+
+    if (sourceType === 'detailAsin') {
+        const asinText = document.getElementById('dataAsin-data').value.trim();
+
+        if (!asinText) {
+            alert("Détails ASIN absent ou pas collé.");
+            document.getElementById('dataAsin-data').style.border = '2px solid red';
+
+            // Retirer la bordure après 2 secondes
+            setTimeout(() => {
+                document.getElementById('dataAsin-data').style.border = '';
+            }, 2000);
+            return;
+        }
+
+        //console.log('Zone de texte ASIN sélectionnée');
+        // TODO: Ajouter votre traitement ici
+        // Exemple : processAsinText(asinText);
+		processDataDailyFromTextarea();
+
+    } else if (sourceType === 'tsv_file') {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+
+        if (file) {
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const content = e.target.result;
+                processDataDaily(content);
+                //console.log('Traitement du fichier TSV lancé');
+            };
+
+            reader.readAsText(file);
+        } else {
+            alert("Veuillez sélectionner un fichier TSV.");
+            fileInput.style.border = '2px solid red';
+
+            // Retirer la bordure après 2 secondes
+            setTimeout(() => {
+                fileInput.style.border = '';
+            }, 2000);
+        }
+    }
+});
+
+//DONNEE VENANT DE FILE INPUT CHOISIR FICHIER PARCOURIR FICHIER
+function processDataDaily(data) {
+    Papa.parse(data, {
+        header: true,
+        delimiter: '\t',
+        skipEmptyLines: true,
+        preview: 500000,
+        complete: function (results) {
+            const parsedData = results.data;
+			window.annotatedResultData = parsedData;
+			//console.log("✅ Données chargées (annotatedResultData) :");
+			//console.log(window.annotatedResultData.map(d => ({ key: d.key, comment: d.Comment })));
+            const necessaryHeaders = ['hitid', 'AssignmentId', 'workerid', 'key', 'assin_json', 'assin_juge_json'];
+            const headersFromData = results.meta.fields.map(header => header.trim().toLowerCase());
+            const normalizedNecessaryHeaders = necessaryHeaders.map(header => header.trim().toLowerCase());
+            const headersPresent = normalizedNecessaryHeaders.every(header => headersFromData.includes(header));
+
+            if (!headersPresent) {
+                console.error('Headers found:', headersFromData);
+                console.error('Expected headers:', normalizedNecessaryHeaders);
+                alert('Les entêtes nécessaires ne sont pas toutes présentes.');
+                return;
+            }
+
+            const resultTable = document.getElementById('resultTable');
+            resultTable.innerHTML = '';
+
+            const caption = resultTable.createCaption();
+            caption.textContent = 'ANALYSE GLOBAL DES RESULTATS VENANT DE LOOKERS STUDIO';
+
+            const indexTypeSelect = document.getElementById('indextype');
+            const selectedIndexType = indexTypeSelect.value;
+
+            let explicitAttributes = [];
+            if (selectedIndexType === 'camera_search') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannxxxot_judge', 'exacxxxxt_match', 'has_product_difference',
+                    'irrexxxxlevant', 'is_wrong_bundle', 'is_wrong_characteristic', 'is_wrong_packaging_overlay',
+                    'is_wrong_size_or_count', 'no_difference', 'possixxxxble_substitute', 'wrong_category'
+                ];
+            } else if (selectedIndexType === 'furniture') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannxxxot_judge', 'color', 'design', 'exacxxxxt_match', 'extra_features',
+                    'irrexxxxlevant', 'location', 'material', 'no_difference', 'pattern', 'possixxxxble_substitute', 'shape',
+                    'size', 'support_type', 'surface_placement', 'wrong_age_group', 'wrong_category'
+                ];
+            } else if (selectedIndexType === 'camera_search_irr') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannot_judge', 'exact_match', 'has_product_difference',
+                    'irrelevant', 'is_wrong_bundle', 'is_wrong_characteristic', 'is_wrong_packaging_overlay',
+                    'is_wrong_size_or_count', 'no_difference', 'possible_substitute', 'wrong_category'
+                ];
+            } else if (selectedIndexType === 'furniture_irr') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannot_judge', 'color', 'design', 'exact_match', 'extra_features',
+                    'irrelevant', 'location', 'material', 'no_difference', 'pattern', 'possible_substitute', 'shape',
+                    'size', 'support_type', 'surface_placement', 'wrong_age_group', 'wrong_category'];
+            }
+
+            const sortedUniqueKeys = explicitAttributes.sort((a, b) => a.localeCompare(b));
+
+            const headers = necessaryHeaders.concat(['smarter', 'juge']);
+            const headerRow = resultTable.insertRow();
+
+            headers.forEach(header => {
+                const cell = document.createElement('th');
+                cell.textContent = header;
+                headerRow.appendChild(cell);
+            });
+
+            sortedUniqueKeys.forEach(key => {
+                const cell = document.createElement('th');
+                cell.textContent = key;
+                headerRow.appendChild(cell);
+            });
+
+            const asinJudgmentHeader = document.createElement('th');
+            asinJudgmentHeader.textContent = 'Jugement ASIN';
+            headerRow.appendChild(asinJudgmentHeader);
+
+            const assignmentJudgmentHeader = document.createElement('th');
+            assignmentJudgmentHeader.textContent = 'Jugement Assignement';
+            headerRow.appendChild(assignmentJudgmentHeader);
+
+            const hitJudgmentHeader = document.createElement('th');
+            hitJudgmentHeader.textContent = 'Jugement HitId';
+            headerRow.appendChild(hitJudgmentHeader);
+			
+
+            parsedData.forEach(row => {
+                const assinJson = row.assin_json.split(',');
+                const jugeJson = row.assin_juge_json.split(',');
+
+                row.smarter = assinJson.join(',');
+                row.juge = jugeJson.join(',');
+
+                const rowElement = resultTable.insertRow();
+                headers.forEach(header => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = row[header] || '';
+                });
+
+                sortedUniqueKeys.forEach(key => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = '';
+                });
+
+                const asinJudgmentCell = rowElement.insertCell();
+                asinJudgmentCell.textContent = '';
+
+                const assignmentJudgmentCell = rowElement.insertCell();
+                assignmentJudgmentCell.textContent = '';
+
+                const hitJudgmentCell = rowElement.insertCell();
+                hitJudgmentCell.textContent = '';
+				
+            });
+
+            const groupedByKey = parsedData.reduce((acc, row, index) => {
+                if (!acc[row.key]) acc[row.key] = [];
+                row.index = index;
+                acc[row.key].push(row);
+                return acc;
+            }, {});
+
+            const groupedByAssignment = parsedData.reduce((acc, row) => {
+                if (!acc[row.AssignmentId]) acc[row.AssignmentId] = [];
+                acc[row.AssignmentId].push(row);
+                return acc;
+            }, {});
+
+            const groupedByHit = parsedData.reduce((acc, row) => {
+                if (!acc[row.hitid]) acc[row.hitid] = [];
+                acc[row.hitid].push(row);
+                return acc;
+            }, {});
+
+            Object.keys(groupedByKey).forEach(key => {
+                const group = groupedByKey[key];
+                const totalRows = group.length;
+
+                const smarterCounts = {};
+                const jugeCounts = {};
+
+                group.forEach(row => {
+                    row.smarter.split(', ').forEach(attr => {
+                        if (attr) smarterCounts[attr] = (smarterCounts[attr] || 0) + 1;
+                    });
+                    row.juge.split(', ').forEach(attr => {
+                        if (attr) jugeCounts[attr] = (jugeCounts[attr] || 0) + 1;
+                    });
+                });
+
+                group.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+
+                    sortedUniqueKeys.forEach(attr => {
+                        let cellValue = '';
+                        const smarterHasAttr = row.smarter.includes(attr);
+                        const jugeHasAttr = row.juge.includes(attr);
+                        const countSmarterCorrect = group.filter(r => r.smarter.includes(attr) && r.juge.includes(attr)).length;
+                        const countSmarterIncorrect = group.filter(r => r.smarter.includes(attr) && !r.juge.includes(attr)).length;
+                        const countMissing = group.filter(r => !r.smarter.includes(attr) && r.juge.includes(attr)).length;
+
+                        if (smarterHasAttr && jugeHasAttr) {
+                            cellValue = countSmarterCorrect >= totalRows / 2 ? 'c_maj' : 'c_min';
+                        } else if (smarterHasAttr && !jugeHasAttr) {
+                            cellValue = countSmarterIncorrect >= totalRows / 2 ? 'i_maj' : 'i_min';
+                        } else if (!smarterHasAttr && jugeHasAttr) {
+                            cellValue = countMissing >= totalRows / 2 ? 'missing_maj' : 'missing_min';
+                        }
+
+                        const cell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === attr)];
+                        if (cell) {
+                            cell.textContent = cellValue;
+                        }
+                    });
+
+                    const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                    const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                    const cellValues = Array.from(rowElement.cells).slice(headers.length, headers.length + sortedUniqueKeys.length).map(cell => cell.textContent);
+
+                    if (cellValues.includes('i_min') || cellValues.includes('i_maj') || cellValues.includes('missing_min') || cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ko';
+                    } else if ((cellValues.includes('c_min') || cellValues.includes('c_maj')) &&
+                        !cellValues.includes('i_min') && !cellValues.includes('i_maj') &&
+                        !cellValues.includes('missing_min') && !cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ok';
+                    }
+                });
+            });
+
+            Object.keys(groupedByAssignment).forEach(assignmentId => {
+                const assignmentGroup = groupedByAssignment[assignmentId];
+                const totalCount = assignmentGroup.length;
+                const okCount = assignmentGroup.filter(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                    const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                    return asinJudgmentCell.textContent === 'ok';
+                }).length;
+
+                const assignmentJudgmentRatio = okCount / totalCount;
+                const assignmentJudgment = assignmentJudgmentRatio > 0.5 ? 'assignement_ok' : 'assignement_ko';
+
+                assignmentGroup.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const assignmentJudgmentCell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement Assignement')];
+                    assignmentJudgmentCell.textContent = assignmentJudgment;
+                });
+            });
+
+            Object.keys(groupedByHit).forEach(hitid => {
+                const hitGroup = groupedByHit[hitid];
+                const totalCount = hitGroup.length;
+                const okCount = hitGroup.filter(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const assignmentJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement Assignement');
+                    const assignmentJudgmentCell = rowElement.cells[assignmentJudgmentIndex];
+                    return assignmentJudgmentCell.textContent === 'assignement_ok';
+                }).length;
+
+                const hitJudgmentRatio = okCount / totalCount;
+                const hitJudgment = hitJudgmentRatio > 0.5 ? 'hitid_ok' : 'hitid_ko';
+
+                hitGroup.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const hitJudgmentCell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement HitId')];
+                    hitJudgmentCell.textContent = hitJudgment;
+                });
+            });
+
+            //const notification = document.getElementById('notification');
+			//notification.textContent = 'Le traitement des données est terminé.';
+			//notification.style.display = 'block';
+
+			// Disparaît après 5 secondes (5000 millisecondes)
+			//setTimeout(() => {
+			//	notification.style.display = 'none';
+			//}, 3000);
+			lancerTraitementAutomatique();
+        }
+    });
+}
+
+//FICHIER VENANT DE ZONE DE TEXTE COLLER DATA ASIN ICI
+function processDataDailyFromTextarea() {
+    const textarea = document.getElementById('dataAsin-data');
+    const data = textarea.value;
+
+    Papa.parse(data, {
+        header: true,
+        delimiter: '\t',
+        skipEmptyLines: true,
+        preview: 500000,
+        complete: function (results) {
+            const parsedData = results.data;
+			window.annotatedResultData = parsedData;
+            const necessaryHeaders = ['hitid', 'AssignmentId', 'workerid', 'key', 'assin_json', 'assin_juge_json'];
+            const headersFromData = results.meta.fields.map(header => header.trim().toLowerCase());
+            const normalizedNecessaryHeaders = necessaryHeaders.map(header => header.trim().toLowerCase());
+            const headersPresent = normalizedNecessaryHeaders.every(header => headersFromData.includes(header));
+
+            if (!headersPresent) {
+                console.error('Headers found:', headersFromData);
+                console.error('Expected headers:', normalizedNecessaryHeaders);
+                alert('Les entêtes nécessaires ne sont pas toutes présentes.');
+                return;
+            }
+
+            const resultTable = document.getElementById('resultTable');
+            resultTable.innerHTML = '';
+
+            const caption = resultTable.createCaption();
+            caption.textContent = 'ANALYSE GLOBAL DES RESULTATS VENANT DE LOOKERS STUDIO';
+
+            const indexTypeSelect = document.getElementById('indextype');
+            const selectedIndexType = indexTypeSelect.value;
+
+            let explicitAttributes = [];
+            if (selectedIndexType === 'camera_search') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannxxxot_judge', 'exacxxxxt_match', 'has_product_difference',
+                    'irrexxxxlevant', 'is_wrong_bundle', 'is_wrong_characteristic', 'is_wrong_packaging_overlay',
+                    'is_wrong_size_or_count', 'no_difference', 'possixxxxble_substitute', 'wrong_category'
+                ];
+            } else if (selectedIndexType === 'furniture') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannxxxot_judge', 'color', 'design', 'exacxxxxt_match', 'extra_features',
+                    'irrexxxxlevant', 'location', 'material', 'no_difference', 'pattern', 'possixxxxble_substitute', 'shape',
+                    'size', 'support_type', 'surface_placement', 'wrong_age_group', 'wrong_category'
+                ];
+            } else if (selectedIndexType === 'camera_search_irr') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannot_judge', 'exact_match', 'has_product_difference',
+                    'irrelevant', 'is_wrong_bundle', 'is_wrong_characteristic', 'is_wrong_packaging_overlay',
+                    'is_wrong_size_or_count', 'no_difference', 'possible_substitute', 'wrong_category'
+                ];
+            } else if (selectedIndexType === 'furniture_irr') {
+                explicitAttributes = [
+                    'asin_image_not_load', 'cannot_judge', 'color', 'design', 'exact_match', 'extra_features',
+                    'irrelevant', 'location', 'material', 'no_difference', 'pattern', 'possible_substitute', 'shape',
+                    'size', 'support_type', 'surface_placement', 'wrong_age_group', 'wrong_category'];
+            }
+
+            const sortedUniqueKeys = explicitAttributes.sort((a, b) => a.localeCompare(b));
+
+            const headers = necessaryHeaders.concat(['smarter', 'juge']);
+            const headerRow = resultTable.insertRow();
+
+            headers.forEach(header => {
+                const cell = document.createElement('th');
+                cell.textContent = header;
+                headerRow.appendChild(cell);
+            });
+
+            sortedUniqueKeys.forEach(key => {
+                const cell = document.createElement('th');
+                cell.textContent = key;
+                headerRow.appendChild(cell);
+            });
+
+            const asinJudgmentHeader = document.createElement('th');
+            asinJudgmentHeader.textContent = 'Jugement ASIN';
+            headerRow.appendChild(asinJudgmentHeader);
+
+            const assignmentJudgmentHeader = document.createElement('th');
+            assignmentJudgmentHeader.textContent = 'Jugement Assignement';
+            headerRow.appendChild(assignmentJudgmentHeader);
+
+            const hitJudgmentHeader = document.createElement('th');
+            hitJudgmentHeader.textContent = 'Jugement HitId';
+            headerRow.appendChild(hitJudgmentHeader);
+			
+
+            parsedData.forEach(row => {
+                const assinJson = row.assin_json.split(',');
+                const jugeJson = row.assin_juge_json.split(',');
+
+                row.smarter = assinJson.join(',');
+                row.juge = jugeJson.join(',');
+
+                const rowElement = resultTable.insertRow();
+                headers.forEach(header => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = row[header] || '';
+                });
+
+                sortedUniqueKeys.forEach(key => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = '';
+                });
+
+                const asinJudgmentCell = rowElement.insertCell();
+                asinJudgmentCell.textContent = '';
+
+                const assignmentJudgmentCell = rowElement.insertCell();
+                assignmentJudgmentCell.textContent = '';
+
+                const hitJudgmentCell = rowElement.insertCell();
+                hitJudgmentCell.textContent = '';
+				
+            });
+
+            const groupedByKey = parsedData.reduce((acc, row, index) => {
+                if (!acc[row.key]) acc[row.key] = [];
+                row.index = index;
+                acc[row.key].push(row);
+                return acc;
+            }, {});
+
+            const groupedByAssignment = parsedData.reduce((acc, row) => {
+                if (!acc[row.AssignmentId]) acc[row.AssignmentId] = [];
+                acc[row.AssignmentId].push(row);
+                return acc;
+            }, {});
+
+            const groupedByHit = parsedData.reduce((acc, row) => {
+                if (!acc[row.hitid]) acc[row.hitid] = [];
+                acc[row.hitid].push(row);
+                return acc;
+            }, {});
+
+            Object.keys(groupedByKey).forEach(key => {
+                const group = groupedByKey[key];
+                const totalRows = group.length;
+
+                const smarterCounts = {};
+                const jugeCounts = {};
+
+                group.forEach(row => {
+                    row.smarter.split(', ').forEach(attr => {
+                        if (attr) smarterCounts[attr] = (smarterCounts[attr] || 0) + 1;
+                    });
+                    row.juge.split(', ').forEach(attr => {
+                        if (attr) jugeCounts[attr] = (jugeCounts[attr] || 0) + 1;
+                    });
+                });
+
+                group.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+
+                    sortedUniqueKeys.forEach(attr => {
+                        let cellValue = '';
+                        const smarterHasAttr = row.smarter.includes(attr);
+                        const jugeHasAttr = row.juge.includes(attr);
+                        const countSmarterCorrect = group.filter(r => r.smarter.includes(attr) && r.juge.includes(attr)).length;
+                        const countSmarterIncorrect = group.filter(r => r.smarter.includes(attr) && !r.juge.includes(attr)).length;
+                        const countMissing = group.filter(r => !r.smarter.includes(attr) && r.juge.includes(attr)).length;
+
+                        if (smarterHasAttr && jugeHasAttr) {
+                            cellValue = countSmarterCorrect >= totalRows / 2 ? 'c_maj' : 'c_min';
+                        } else if (smarterHasAttr && !jugeHasAttr) {
+                            cellValue = countSmarterIncorrect >= totalRows / 2 ? 'i_maj' : 'i_min';
+                        } else if (!smarterHasAttr && jugeHasAttr) {
+                            cellValue = countMissing >= totalRows / 2 ? 'missing_maj' : 'missing_min';
+                        }
+
+                        const cell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === attr)];
+                        if (cell) {
+                            cell.textContent = cellValue;
+                        }
+                    });
+
+                    const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                    const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                    const cellValues = Array.from(rowElement.cells).slice(headers.length, headers.length + sortedUniqueKeys.length).map(cell => cell.textContent);
+
+                    if (cellValues.includes('i_min') || cellValues.includes('i_maj') || cellValues.includes('missing_min') || cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ko';
+                    } else if ((cellValues.includes('c_min') || cellValues.includes('c_maj')) &&
+                        !cellValues.includes('i_min') && !cellValues.includes('i_maj') &&
+                        !cellValues.includes('missing_min') && !cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ok';
+                    }
+                });
+            });
+
+            Object.keys(groupedByAssignment).forEach(assignmentId => {
+                const assignmentGroup = groupedByAssignment[assignmentId];
+                const totalCount = assignmentGroup.length;
+                const okCount = assignmentGroup.filter(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                    const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                    return asinJudgmentCell.textContent === 'ok';
+                }).length;
+
+                const assignmentJudgmentRatio = okCount / totalCount;
+                const assignmentJudgment = assignmentJudgmentRatio > 0.5 ? 'assignement_ok' : 'assignement_ko';
+
+                assignmentGroup.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const assignmentJudgmentCell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement Assignement')];
+                    assignmentJudgmentCell.textContent = assignmentJudgment;
+                });
+            });
+
+            Object.keys(groupedByHit).forEach(hitid => {
+                const hitGroup = groupedByHit[hitid];
+                const totalCount = hitGroup.length;
+                const okCount = hitGroup.filter(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const assignmentJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement Assignement');
+                    const assignmentJudgmentCell = rowElement.cells[assignmentJudgmentIndex];
+                    return assignmentJudgmentCell.textContent === 'assignement_ok';
+                }).length;
+
+                const hitJudgmentRatio = okCount / totalCount;
+                const hitJudgment = hitJudgmentRatio > 0.5 ? 'hitid_ok' : 'hitid_ko';
+
+                hitGroup.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const hitJudgmentCell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement HitId')];
+                    hitJudgmentCell.textContent = hitJudgment;
+                });
+            });
+			lancerTraitementAutomatique();
+            //const notification = document.getElementById('notification');
+			//notification.textContent = 'Le traitement des données est terminé.';
+			//notification.style.display = 'block';
+
+			// Disparaît après 5 secondes (5000 millisecondes)
+			//setTimeout(() => {
+			//	notification.style.display = 'none';
+			//}, 3000);
+        }
+    });
+}
+
+	
+
+function calculateConsensusWorker() {
+    const resultTable = document.getElementById('resultTable');
+    if (!resultTable) {
+        console.error('Table with id "resultTable" not found.');
+        return;
+    }
+
+    const headers = Array.from(resultTable.querySelectorAll('th')).map(th => th.innerText.trim());
+
+    if (headers.indexOf('workerid') === -1) {
+        console.error('Column "workerid" not found.');
+        return;
+    }
+
+    const data = Array.from(resultTable.querySelectorAll('tbody tr')).map((row, rowIndex) => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        const workeridCell = cells[headers.indexOf('workerid')];
+
+        if (!workeridCell) {
+            console.error(`WorkerID cell is missing in row ${rowIndex + 1}`);
+            return null;
+        }
+
+        const rowData = {};
+        headers.slice(headers.indexOf('juge') + 1).forEach(attr => {
+            const cell = cells[headers.indexOf(attr)];
+            if (!cell) {
+                console.error(`Cell for attribute '${attr}' is missing in row ${rowIndex + 1}`);
+            }
+            rowData[attr] = cell?.innerText.trim() || '';
+        });
+
+        return {
+            workerid: workeridCell.innerText.trim(),
+            ...rowData
+        };
+    }).filter(Boolean);
+
+    const summary = {};
+    data.forEach(row => {
+        if (!summary[row.workerid]) {
+            summary[row.workerid] = {
+                correct_majority: 0,
+                correct_minority: 0,
+                incorrect_majority: 0,
+                incorrect_minority: 0,
+                total: 0
+            };
+        }
+
+        Object.values(row).forEach(value => {
+            if (value.includes('c_maj')) summary[row.workerid].correct_majority++;
+            if (value.includes('c_min')) summary[row.workerid].correct_minority++;
+            if (value.includes('i_maj') || value.includes('missing_maj')) summary[row.workerid].incorrect_majority++;
+            if (value.includes('i_min') || value.includes('missing_min')) summary[row.workerid].incorrect_minority++;
+        });
+
+        summary[row.workerid].total =
+            summary[row.workerid].correct_majority +
+            summary[row.workerid].correct_minority +
+            summary[row.workerid].incorrect_majority +
+            summary[row.workerid].incorrect_minority;
+    });
+
+    const totalCorrectMajority = Object.values(summary).reduce((sum, row) => sum + row.correct_majority, 0);
+    const totalCorrectMinority = Object.values(summary).reduce((sum, row) => sum + row.correct_minority, 0);
+    const totalIncorrectMajority = Object.values(summary).reduce((sum, row) => sum + row.incorrect_majority, 0);
+    const totalIncorrectMinority = Object.values(summary).reduce((sum, row) => sum + row.incorrect_minority, 0);
+    const grandTotal = totalCorrectMajority + totalCorrectMinority + totalIncorrectMajority + totalIncorrectMinority;
+
+    const table = document.getElementById('consensusWorkerID');
+    table.innerHTML = ''; // Reset table content
+
+    // 🔍 Lire la date et index
+    const dateInput = document.getElementById('picking_day');
+    const indexInput = document.getElementById('picking_index');
+
+    let yearStr = '', weekNum = '', monthStr = '', formattedDate = '', indexValue = '';
+    if (dateInput && dateInput.value) {
+        const selectedDate = new Date(dateInput.value);
+        const janFirst = new Date(selectedDate.getFullYear(), 0, 1);
+        const dayDiff = (selectedDate - janFirst + ((janFirst.getDay() + 6) % 7) * 86400000) / 86400000;
+        weekNum = Math.ceil(dayDiff / 7);
+
+        const months = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+        monthStr = months[selectedDate.getMonth()] + '-' + selectedDate.getFullYear();
+        formattedDate = selectedDate.toLocaleDateString('fr-FR');
+        yearStr = selectedDate.getFullYear().toString();
+    }
+
+    if (indexInput && indexInput.value) {
+        indexValue = indexInput.value;
+    }
+
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    const headerRow = document.createElement('tr');
+    [
+        'Years', 'Months', 'Weeks', 'Date', 'Index', 'workerid',
+        'Correct Majority', 'Taux %',
+        'Correct Minority', 'Taux %',
+        'Incorrect Majority', 'Taux %',
+        'Incorrect Minority', 'Taux %',
+        'Total', 'Consensus Correctness (%)', 'Attribute Error Rate (%)'
+    ].forEach(text => {
+        const th = document.createElement('th');
+        th.innerText = text;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    Object.entries(summary).forEach(([workerid, stats]) => {
+        const {
+            correct_majority, correct_minority,
+            incorrect_majority, incorrect_minority, total
+        } = stats;
+
+        const row = document.createElement('tr');
+        const correctMajorityPercentage = grandTotal > 0 ? formatPercentage(correct_majority * 100 / grandTotal) : '0,00%';
+        const correctMinorityPercentage = grandTotal > 0 ? formatPercentage(correct_minority * 100 / grandTotal) : '0,00%';
+        const incorrectMajorityPercentage = grandTotal > 0 ? formatPercentage(incorrect_majority * 100 / grandTotal) : '0,00%';
+        const incorrectMinorityPercentage = grandTotal > 0 ? formatPercentage(incorrect_minority * 100 / grandTotal) : '0,00%';
+
+        const consensusCorrectness = total > 0 ? formatPercentage((correct_majority + correct_minority) * 100 / (totalCorrectMajority + totalCorrectMinority)) : '0,00%';
+        const errorRate = total > 0 ? formatPercentage((incorrect_majority + incorrect_minority) * 100 / (totalIncorrectMajority + totalIncorrectMinority)) : '0,00%';
+
+        [
+            yearStr, monthStr, weekNum, formattedDate, indexValue, workerid,
+            correct_majority, correctMajorityPercentage,
+            correct_minority, correctMinorityPercentage,
+            incorrect_majority, incorrectMajorityPercentage,
+            incorrect_minority, incorrectMinorityPercentage,
+            formatTotal(total), consensusCorrectness, errorRate
+        ].forEach(text => {
+            const td = document.createElement('td');
+            td.innerText = text;
+            row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+    });
+
+    const footerRow = document.createElement('tr');
+    const consensusTotalCorrectness = formatPercentage((totalCorrectMajority + totalCorrectMinority) * 100 / grandTotal);
+    const consensusTotalErrorRate = formatPercentage((totalIncorrectMajority + totalIncorrectMinority) * 100 / grandTotal);
+
+    [
+        "", "", "", "", "", 'Total',
+        formatTotal(totalCorrectMajority), formatPercentage(totalCorrectMajority * 100 / grandTotal),
+        formatTotal(totalCorrectMinority), formatPercentage(totalCorrectMinority * 100 / grandTotal),
+        formatTotal(totalIncorrectMajority), formatPercentage(totalIncorrectMajority * 100 / grandTotal),
+        formatTotal(totalIncorrectMinority), formatPercentage(totalIncorrectMinority * 100 / grandTotal),
+        formatTotal(grandTotal), consensusTotalCorrectness, consensusTotalErrorRate
+    ].forEach(text => {
+        const td = document.createElement('td');
+        td.innerText = text;
+        footerRow.appendChild(td);
+    });
+
+    tbody.appendChild(footerRow);
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    // Utilitaires
+    function formatPercentage(val) {
+        return parseFloat(val).toFixed(2).replace('.', ',') + '%';
+    }
+
+    function formatTotal(val) {
+        return Number.isInteger(val) ? val : Math.round(val);
+    }
+}
+
+
+
+function calculateAccuracyWorkerID() {
+    const resultTable = document.getElementById('resultTable');
+    if (!resultTable) {
+        console.error('Table with id "resultTable" not found.');
+        return;
+    }
+
+    const table = document.getElementById('accuracyWorkerID');
+    if (!table) {
+        console.error('Table with id "accuracyWorkerID" not found.');
+        return;
+    }
+
+    table.innerHTML = ''; // Réinitialiser le contenu de la table
+
+    // Récupérer les infos de date et index
+    const dateInput = document.getElementById('picking_day');
+    const indexInput = document.getElementById('picking_index');
+
+    let yearStr = '', weekNum = '', monthStr = '', formattedDate = '', indexValue = '';
+    if (dateInput && dateInput.value) {
+        const selectedDate = new Date(dateInput.value);
+        const janFirst = new Date(selectedDate.getFullYear(), 0, 1);
+        const dayDiff = (selectedDate - janFirst + ((janFirst.getDay() + 6) % 7) * 86400000) / 86400000;
+        weekNum = Math.ceil(dayDiff / 7);
+
+        const months = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+        monthStr = months[selectedDate.getMonth()] + '-' + selectedDate.getFullYear();
+        formattedDate = selectedDate.toLocaleDateString('fr-FR');
+        yearStr = selectedDate.getFullYear().toString();
+    }
+
+    if (indexInput && indexInput.value) {
+        indexValue = indexInput.value;
+    }
+
+    const headers = Array.from(resultTable.querySelectorAll('tr')[0].cells).map(th => th.textContent.trim());
+
+    const data = Array.from(resultTable.querySelectorAll('tr'))
+        .slice(1) // Ignorer la ligne d'en-tête
+        .map(row => {
+            const cells = Array.from(row.querySelectorAll('td'));
+            if (cells.length !== headers.length) {
+                console.warn('Mismatch in number of cells and headers in row:', row);
+                return null;
+            }
+
+            const workeridCell = cells[headers.indexOf('workerid')];
+            const jugementASINCell = cells[headers.indexOf('Jugement ASIN')];
+
+            if (!workeridCell || !jugementASINCell) {
+                console.warn('Missing workerid or Jugement ASIN in row:', row);
+                return null;
+            }
+
+            return {
+                workerid: workeridCell.textContent.trim(),
+                jugementASIN: jugementASINCell.textContent.trim()
+            };
+        }).filter(Boolean); // Supprime les nulls
+
+    const workerSummary = {};
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+
+    data.forEach(row => {
+        if (!workerSummary[row.workerid]) {
+            workerSummary[row.workerid] = { Correct: 0, Incorrect: 0 };
+        }
+
+        if (row.jugementASIN === 'ok') {
+            workerSummary[row.workerid].Correct += 1;
+            totalCorrect += 1;
+        } else if (row.jugementASIN === 'ko') {
+            workerSummary[row.workerid].Incorrect += 1;
+            totalIncorrect += 1;
+        }
+    });
+
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    const headerRow = document.createElement('tr');
+    [
+        'Years', 'Months', 'Weeks', 'Date', 'Index',
+        'workerid', 'Correct', 'Incorrecte',
+        'Total ASIN traité', 'Accuracy (%)', 'Error Rate (%)'
+    ].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    Object.entries(workerSummary).forEach(([workerid, summary]) => {
+        const totalASIN = summary.Correct + summary.Incorrect;
+        const accuracy = totalASIN > 0 ? formatPercentage((summary.Correct / totalASIN) * 100) : '0,00%';
+        const errorRate = totalASIN > 0 ? formatPercentage((summary.Incorrect / totalASIN) * 100) : '0,00%';
+
+        const row = document.createElement('tr');
+        [
+            yearStr, monthStr, weekNum, formattedDate, indexValue,
+            workerid, summary.Correct, summary.Incorrect,
+            formatTotal(totalASIN), accuracy, errorRate
+        ].forEach(text => {
+            const td = document.createElement('td');
+            td.textContent = text;
+            row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+    });
+
+    // Ligne des totaux
+    const totalASIN = totalCorrect + totalIncorrect;
+    const overallAccuracy = totalASIN > 0 ? formatPercentage((totalCorrect / totalASIN) * 100) : '0,00%';
+    const overallErrorRate = totalASIN > 0 ? formatPercentage((totalIncorrect / totalASIN) * 100) : '0,00%';
+
+    const footerRow = document.createElement('tr');
+    [
+        "", "", "", "", "",
+        'Total général', formatTotal(totalCorrect), formatTotal(totalIncorrect),
+        formatTotal(totalASIN), overallAccuracy, overallErrorRate
+    ].forEach(text => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        footerRow.appendChild(td);
+    });
+    tbody.appendChild(footerRow);
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    function formatPercentage(val) {
+        return val.toFixed(2).replace('.', ',') + '%';
+    }
+
+    function formatTotal(val) {
+        return val.toString();
+    }
+}
+
+
+
+// Ensure the caption is visible with CSS
+const style = document.createElement('style');
+style.innerHTML = `
+    table caption {
+        caption-side: top;
+        font-weight: bold;
+        font-size: 1.2em;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+`;
+document.head.appendChild(style);
+
+
+
+		
+		
+		// CALCUL AGREEMENT
+		function agreement() {
+    const resultTable = document.getElementById('resultTable');
+    if (!resultTable) {
+        console.error('Table with id "resultTable" not found.');
+        return;
+    }
+
+    const table = document.getElementById('agreementTable');
+    if (!table) {
+        console.error('Table with id "agreementTable" not found.');
+        return;
+    }
+
+    // Adding caption to the table
+    const caption = table.createCaption();
+    caption.textContent = 'SUMMARY AGREEMENT';
+
+    const headers = Array.from(resultTable.querySelectorAll('th')).map(th => th.innerText.trim());
+    const data = Array.from(resultTable.querySelectorAll('tbody tr')).map(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        const rowData = {};
+        headers.forEach((header, index) => {
+            rowData[header] = cells[index] ? cells[index].innerText.trim() : '';
+        });
+        return rowData;
+    });
+
+    const summary = {
+        CorrectMajority: 0,
+        CorrectMinority: 0,
+        IncorrectMajority: 0,
+        IncorrectMinority: 0
+    };
+
+    const attributeHeaders = headers.slice(headers.indexOf('juge') + 1).filter(header => header !== 'Jugement ASIN' && header !== 'Jugement Assignement');
+    const totalASINs = data.length;
+
+    data.forEach(row => {
+        attributeHeaders.forEach(attr => {
+            if (row[attr] === 'c_maj') {
+                summary.CorrectMajority += 1;
+            } else if (row[attr] === 'c_min') {
+                summary.CorrectMinority += 1;
+            } else if (row[attr] === 'i_maj' || row[attr] === 'missing_maj') {
+                summary.IncorrectMajority += 1;
+            } else if (row[attr] === 'i_min' || row[attr] === 'missing_min') {
+                summary.IncorrectMinority += 1;
+            }
+        });
+    });
+
+    const totalAgreements = summary.CorrectMajority + summary.CorrectMinority + summary.IncorrectMajority + summary.IncorrectMinority;
+
+    table.innerHTML = '';
+
+    const tbody = document.createElement('tbody');
+    const headerRow = document.createElement('tr');
+    const th = document.createElement('th');
+    th.colSpan = 3;
+    th.innerText = `Total agreement in ${totalASINs - 1} processed ASINs`;
+    headerRow.appendChild(th);
+    tbody.appendChild(headerRow);
+
+    const formattedData = [
+        ['Correct Majority', formatTotal(summary.CorrectMajority), formatPercentage(summary.CorrectMajority / totalAgreements * 100)],
+        ['Correct Minority', formatTotal(summary.CorrectMinority), formatPercentage(summary.CorrectMinority / totalAgreements * 100)],
+        ['Incorrect Majority', formatTotal(summary.IncorrectMajority), formatPercentage(summary.IncorrectMajority / totalAgreements * 100)],
+        ['Incorrect Minority', formatTotal(summary.IncorrectMinority), formatPercentage(summary.IncorrectMinority / totalAgreements * 100)],
+        ['Total:', formatTotal(totalAgreements), '']
+    ];
+
+    formattedData.forEach(rowData => {
+        const row = document.createElement('tr');
+        rowData.forEach(text => {
+            const td = document.createElement('td');
+            td.innerText = text;
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+
+    table.appendChild(tbody);
+    
+}
+		
+		
+			//CALCUL SUMMARY ENTIRELY BATCH
+		function Summary() {
+    const resultTable = document.getElementById('resultTable');
+    if (!resultTable) {
+        console.error('Table with id "resultTable" not found.');
+        return;
+    }
+
+    const caption = resultTable.createCaption();
+    caption.textContent = 'SUMMARY INDEX';
+
+    const headers = Array.from(resultTable.querySelectorAll('th')).map(th => th.innerText.trim());
+    const data = Array.from(resultTable.querySelectorAll('tbody tr')).map(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        const rowData = {};
+        headers.forEach((header, index) => {
+            rowData[header] = cells[index] ? cells[index].innerText.trim() : '';
+        });
+        return rowData;
+    });
+
+    const uniqueHITIDs = new Set();
+    const uniqueWorkerIDs = new Set();
+    let totalASINs = 0;
+    let correctASINs = 0;
+    let incorrectASINs = 0;
+
+    data.forEach(row => {
+        uniqueHITIDs.add(row['hitid']);
+        uniqueWorkerIDs.add(row['workerid']);
+        totalASINs += 1;
+        if (row['Jugement ASIN'] === 'ok') {
+            correctASINs += 1;
+        } else if (row['Jugement ASIN'] === 'ko') {
+            incorrectASINs += 1;
+        }
+    });
+
+    const globalAccuracy = (correctASINs / totalASINs * 100).toFixed(2);
+
+    const table = document.getElementById('summaryTable');
+    table.innerHTML = '';
+
+    const tbody = document.createElement('tbody');
+    const headerRow = document.createElement('tr');
+    const th = document.createElement('th');
+    th.colSpan = 2;
+    th.innerText = 'Summary';
+    headerRow.appendChild(th);
+    tbody.appendChild(headerRow);
+
+    const formattedData = [
+        ['Unique HITIDs', formatTotal(uniqueHITIDs.size - 1)],
+        ['WorkerIDs', formatTotal(uniqueWorkerIDs.size - 1)],
+        ['Total ASIN Analyzed', formatTotal(totalASINs - 1)],
+        ['Correct ASINs', formatTotal(correctASINs)],
+        ['Incorrect ASINs', formatTotal(incorrectASINs)],
+        ['Global Accuracy', formatPercentage(globalAccuracy)]
+    ];
+
+    formattedData.forEach(rowData => {
+        const row = document.createElement('tr');
+        rowData.forEach(text => {
+            const td = document.createElement('td');
+            td.innerText = text;
+            row.appendChild(td);
+        });
+        tbody.appendChild(row);
+    });
+
+    table.appendChild(tbody);
+}
+
+
+
+function DetailedAttributConsensus() {
+    const resultTable = document.getElementById('resultTable');
+    const attributes = {};
+
+    const headers = Array.from(resultTable.querySelectorAll('th')).map(th => th.innerText.trim());
+    const jugeIndex = headers.indexOf('juge');
+    const attributeColumns = headers.slice(jugeIndex + 1).filter(col =>
+        col !== 'Jugement ASIN' && col !== 'Jugement Assignement' && col !== 'Jugement HitId'
+    );
+
+    if (jugeIndex === -1) {
+        console.error('Colonne "juge" non trouvée');
+        return;
+    }
+
+    attributeColumns.forEach(attr => {
+        attributes[attr] = {
+            correctMajority: 0,
+            correctMinority: 0,
+            incorrectMajority: 0,
+            incorrectMinority: 0
+        };
+    });
+
+    for (let i = 1; i < resultTable.rows.length; i++) {
+        const row = resultTable.rows[i];
+        const cellValues = row.cells;
+
+        attributeColumns.forEach((attr, index) => {
+            const cellIndex = jugeIndex + 1 + index;
+            if (cellIndex < cellValues.length) {
+                const value = cellValues[cellIndex].textContent.trim();
+
+                if (value === 'c_maj') {
+                    attributes[attr].correctMajority++;
+                } else if (value === 'c_min') {
+                    attributes[attr].correctMinority++;
+                } else if (value === 'i_maj' || value === 'missing_maj') {
+                    attributes[attr].incorrectMajority++;
+                } else if (value === 'i_min' || value === 'missing_min') {
+                    attributes[attr].incorrectMinority++;
+                }
+            }
+        });
+    }
+
+    let grandTotalCorrectMajority = 0;
+    let grandTotalCorrectMinority = 0;
+    let grandTotalIncorrectMajority = 0;
+    let grandTotalIncorrectMinority = 0;
+
+    Object.values(attributes).forEach(data => {
+        grandTotalCorrectMajority += data.correctMajority;
+        grandTotalCorrectMinority += data.correctMinority;
+        grandTotalIncorrectMajority += data.incorrectMajority;
+        grandTotalIncorrectMinority += data.incorrectMinority;
+    });
+
+    const grandTotal = grandTotalCorrectMajority + grandTotalCorrectMinority + grandTotalIncorrectMajority + grandTotalIncorrectMinority;
+
+    const dateInput = document.getElementById('picking_day');
+    const indexInput = document.getElementById('picking_index');
+    let yearStr = '', weekNum = '', monthStr = '', formattedDate = '', indexValue = '';
+
+    if (dateInput && dateInput.value) {
+        const selectedDate = new Date(dateInput.value);
+        const janFirst = new Date(selectedDate.getFullYear(), 0, 1);
+        const dayDiff = (selectedDate - janFirst + ((janFirst.getDay() + 6) % 7) * 86400000) / 86400000;
+        weekNum = Math.ceil(dayDiff / 7);
+
+        const months = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+        monthStr = months[selectedDate.getMonth()] + '-' + selectedDate.getFullYear();
+        formattedDate = selectedDate.toLocaleDateString('fr-FR');
+        yearStr = selectedDate.getFullYear().toString();
+    }
+
+    if (indexInput && indexInput.value) {
+        indexValue = indexInput.value;
+    }
+
+    const detailedTable = document.getElementById('consensusAttributDetailed');
+    detailedTable.innerHTML = '';
+
+    const headerRowNew = detailedTable.insertRow();
+    const newHeaders = [
+        'Years', 'Months', 'Weeks', 'Date', 'Index', 'Attributs',
+        'Correct Majority', 'Taux %',
+        'Correct Minority', 'Taux %',
+        'Incorrect Majority', 'Taux %',
+        'Incorrect Minority', 'Taux %',
+        'Total', 'Consensus Correctness (%)', 'Attribute Error Rate (%)'
+    ];
+
+    newHeaders.forEach(header => {
+        const cell = document.createElement('th');
+        cell.textContent = header;
+        headerRowNew.appendChild(cell);
+    });
+
+    const excludedEmptyAttributes = [
+        "cannxxxot_judge",
+        "exacxxxxt_match",
+        "irrexxxxlevant",
+        "possixxxxble_substitute"
+    ];
+
+    Object.keys(attributes).forEach(attr => {
+        const data = attributes[attr];
+        const total = data.correctMajority + data.correctMinority + data.incorrectMajority + data.incorrectMinority;
+
+        if (excludedEmptyAttributes.includes(attr) && total === 0) return;
+
+        const row = detailedTable.insertRow();
+        row.insertCell().textContent = yearStr;
+		row.insertCell().textContent = monthStr;
+        row.insertCell().textContent = weekNum;
+        row.insertCell().textContent = formattedDate;
+        row.insertCell().textContent = indexValue;
+        row.insertCell().textContent = attr;
+
+        row.insertCell().textContent = data.correctMajority;
+        row.insertCell().textContent = grandTotal > 0 ? formatPct(data.correctMajority, grandTotal) : '0,00%';
+        row.insertCell().textContent = data.correctMinority;
+        row.insertCell().textContent = grandTotal > 0 ? formatPct(data.correctMinority, grandTotal) : '0,00%';
+        row.insertCell().textContent = data.incorrectMajority;
+        row.insertCell().textContent = grandTotal > 0 ? formatPct(data.incorrectMajority, grandTotal) : '0,00%';
+        row.insertCell().textContent = data.incorrectMinority;
+        row.insertCell().textContent = grandTotal > 0 ? formatPct(data.incorrectMinority, grandTotal) : '0,00%';
+
+        row.insertCell().textContent = total;
+        row.insertCell().textContent = grandTotal > 0 ? formatPct(data.correctMajority + data.correctMinority, grandTotal) : '0,00%';
+        row.insertCell().textContent = grandTotal > 0 ? formatPct(data.incorrectMajority + data.incorrectMinority, grandTotal) : '0,00%';
+    });
+
+    const totalRow = detailedTable.insertRow();
+    totalRow.insertCell().textContent = "";
+    totalRow.insertCell().textContent = "";
+    totalRow.insertCell().textContent = "";
+    totalRow.insertCell().textContent = "";
+    totalRow.insertCell().textContent = "";
+    totalRow.insertCell().textContent = 'Total';
+
+    totalRow.insertCell().textContent = grandTotalCorrectMajority;
+    totalRow.insertCell().textContent = formatPct(grandTotalCorrectMajority, grandTotal);
+    totalRow.insertCell().textContent = grandTotalCorrectMinority;
+    totalRow.insertCell().textContent = formatPct(grandTotalCorrectMinority, grandTotal);
+    totalRow.insertCell().textContent = grandTotalIncorrectMajority;
+    totalRow.insertCell().textContent = formatPct(grandTotalIncorrectMajority, grandTotal);
+    totalRow.insertCell().textContent = grandTotalIncorrectMinority;
+    totalRow.insertCell().textContent = formatPct(grandTotalIncorrectMinority, grandTotal);
+    totalRow.insertCell().textContent = grandTotal;
+    totalRow.insertCell().textContent = formatPct(grandTotalCorrectMajority + grandTotalCorrectMinority, grandTotal);
+    totalRow.insertCell().textContent = formatPct(grandTotalIncorrectMajority + grandTotalIncorrectMinority, grandTotal);
+
+    function formatPct(n, d) {
+        return ((n * 100) / d).toFixed(2).replace('.', ',') + '%';
+    }
+}
+
+
+
+
+// Fonction pour copier le contenu d'une table dans le presse-papiers
+async function copyTableToClipboard(table) {
+    if (!table) {
+        console.error('Table non trouvée.');
+        return;
+    }
+
+    // Vérifier si la table est vide
+    if (!table.innerText.trim()) {
+        alert('Table vide');
+        return;
+    }
+
+    try {
+        // Obtenir le contenu de la table
+        const tableText = table.innerText;
+
+        // Copier le contenu dans le presse-papiers en utilisant l'API Clipboard
+        await navigator.clipboard.writeText(tableText);
+
+        // Obtenir l'ID de la table
+        const tableId = table.id || 'sans ID';
+
+        // Afficher une notification pour l'utilisateur avec l'ID de la table
+        alert(`Table ${tableId} copiée dans le presse-papiers!`);
+    } catch (err) {
+        console.error('Erreur lors de la copie dans le presse-papiers:', err);
+    }
+}
+
+// Ajouter l'événement click pour copier une table
+document.querySelectorAll('table').forEach(table => {
+    table.onclick = () => {
+        copyTableToClipboard(table);
+    };
+});
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+function calculerScoreGlobale() {
+    // Indexer les colonnes importantes
+    const resultTable = document.getElementById('resultTable');
+    const rows = resultTable.getElementsByTagName('tr');
+    const header = rows[0].getElementsByTagName('th');
+    let indexes = {};
+
+    for (let i = 0; i < header.length; i++) {
+        const colName = header[i].innerText.trim();
+        if (['hitid', 'AssignmentId', 'Jugement ASIN', 'Jugement Assignement', 'Jugement HitId'].includes(colName)) {
+            indexes[colName] = i;
+        }
+    }
+
+    // Initialiser les sets et compteurs
+    let assignmentSet = new Set();
+    let assignmentKOSet = new Set();
+    let hitSet = new Set();
+    let hitKOSet = new Set();
+    let attributeCounts = {
+        correct_majority: 0,
+        correct_minority: 0,
+        incorrect_majority: 0,
+        incorrect_minority: 0
+    };
+
+    // AJOUTER ICI TOUT LES ATTRIBUTS NECESSAIRES POUR LE CALCUL DE CRJ DETAILS
+    //let attributeColumns = ['asin_image_not_load', 'wrong_age_group', 'wrong_category', 'color', 'pattern', 'material', 'size', 'shape', 'support_type', 'extra_features', 'location', 'no_difference','has_product_difference', 'is_wrong_characteristic', 'is_wrong_size_or_count', 'is_wrong_bundle', 'is_wrong_packaging_overlay', 'is_non_targeted_match'];
+	let attributeColumns = ['asin_image_not_load', 'wrong_age_group', 'wrong_category', 'color', 'pattern', 'material', 'size', 'shape', 'support_type', 'extra_features', 'location', 'no_difference','has_product_difference', 'is_wrong_characteristic', 'is_wrong_size_or_count', 'is_wrong_bundle', 'is_wrong_packaging_overlay', 'is_non_targeted_match', 'irrelevant', 'exact_match', 'possible_substitute', 'cannot_judge'];
+
+    // Parcourir les lignes du tableau
+    for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        const assignmentId = cells[indexes['AssignmentId']].innerText.trim();
+        const hitId = cells[indexes['hitid']].innerText.trim();
+        const jugementAssignment = cells[indexes['Jugement Assignement']].innerText.trim();
+        const jugementHitId = cells[indexes['Jugement HitId']].innerText.trim();
+
+        // Remplir les sets et compteurs pour CRJ_Table1
+        assignmentSet.add(assignmentId);
+        if (jugementAssignment === 'assignement_ko') {
+            assignmentKOSet.add(assignmentId);
+        }
+
+        // Remplir les sets et compteurs pour CRJ_Table2
+        hitSet.add(hitId);
+        if (jugementHitId === 'hitid_ko') {
+            hitKOSet.add(hitId);
+        }
+
+        // Compter les attributs
+        attributeColumns.forEach(attr => {
+            const attrIndex = Array.from(header).findIndex(th => th.innerText.trim() === attr);
+            if (attrIndex !== -1) {
+                const attrValue = cells[attrIndex].innerText.trim();
+                if (attrValue === 'c_maj') {
+                    attributeCounts.correct_majority++;
+                } else if (attrValue === 'c_min') {
+                    attributeCounts.correct_minority++;
+                } else if (attrValue === 'i_maj' || attrValue === 'missing_maj') {
+                    attributeCounts.incorrect_majority++;
+                } else if (attrValue === 'i_min' || attrValue === 'missing_min') {
+                    attributeCounts.incorrect_minority++;
+                }
+            }
+        });
+    }
+
+    // Calculer le taux d'erreurs
+    const assignmentEchantillonne = assignmentSet.size;
+    const assignmentKO = assignmentKOSet.size;
+    const tauxErreurs = (assignmentKO / assignmentEchantillonne) * 100;
+    const formattedTauxErreurs = formatPercentage(tauxErreurs);
+
+    // Récupérer la valeur sélectionnée dans la liste déroulante
+    const selectedIndexType = document.getElementById('indextype').value;
+
+    // Vider CRJ_Table1 avant de remplir
+    const CRJ_Table1 = document.getElementById('CRJ_Table1');
+    CRJ_Table1.innerHTML = ''; // Vider le contenu de la table
+    const headerRow1 = CRJ_Table1.insertRow();
+    ['Assignment échantillonné', 'Taux d\'erreurs', 'Assignment KO', 'Détail'].forEach(text => {
+        const th = document.createElement('th');
+        th.innerText = text;
+        headerRow1.appendChild(th);
+    });
+    const row1 = CRJ_Table1.insertRow();
+    row1.insertCell(0).innerText = assignmentEchantillonne;
+    row1.insertCell(1).innerText = formattedTauxErreurs;
+    row1.insertCell(2).innerText = assignmentKO;
+    row1.insertCell(3).innerText = selectedIndexType;  // Insérer la valeur sélectionnée ici
+
+    // Calculer le total des attributs
+    const totalAttributes = attributeCounts.correct_majority + attributeCounts.correct_minority + attributeCounts.incorrect_majority + attributeCounts.incorrect_minority;
+
+    // Calculer les pourcentages
+    const correctMajorityPercentage = formatPercentage((attributeCounts.correct_majority / totalAttributes) * 100);
+    const correctMinorityPercentage = formatPercentage((attributeCounts.correct_minority / totalAttributes) * 100);
+    const incorrectMajorityPercentage = formatPercentage((attributeCounts.incorrect_majority / totalAttributes) * 100);
+    const incorrectMinorityPercentage = formatPercentage((attributeCounts.incorrect_minority / totalAttributes) * 100);
+
+    // Vider CRJ_Table2 avant de remplir
+    const CRJ_Table2 = document.getElementById('CRJ_Table2');
+    CRJ_Table2.innerHTML = ''; // Vider le contenu de la table
+    const headerRow2 = CRJ_Table2.insertRow();
+    ['HIT contrôlé', 'HIT KO', 'CORRECT_MAJORITY', 'CORRECT_MINORITY', 'INCORRECT_MAJORITY', 'INCORRECT_MINORITY'].forEach(text => {
+        const th = document.createElement('th');
+        th.innerText = text;
+        headerRow2.appendChild(th);
+    });
+    const row2 = CRJ_Table2.insertRow();
+	const row3 = CRJ_Table2.insertRow();
+    row2.insertCell(0).innerText = hitSet.size;
+    row2.insertCell(1).innerText = hitKOSet.size;
+    row2.insertCell(2).innerText = correctMajorityPercentage;
+    row2.insertCell(3).innerText = correctMinorityPercentage;
+    row2.insertCell(4).innerText = incorrectMajorityPercentage;
+    row2.insertCell(5).innerText = incorrectMinorityPercentage;
+	
+	//AFFICHER TOTAL EN BAS DE LA TABLE (LES NOMBRES DE C_MAJ, C_MIN, I_MAJ ET I_MIN
+	row3.insertCell(0).innerText = hitSet.size;
+    row3.insertCell(1).innerText = hitKOSet.size;
+    row3.insertCell(2).innerText = attributeCounts.correct_majority;
+    row3.insertCell(3).innerText = attributeCounts.correct_minority;
+    row3.insertCell(4).innerText = attributeCounts.incorrect_majority;
+    row3.insertCell(5).innerText = attributeCounts.incorrect_minority;
+};
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+//FONCTION POUR SUMMARY ET AGREEMENT
+function executeBoth() {
+    agreement();
+    Summary();
+	//SCROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOLLLLLLLLLLLLLLLLLLL
+	var table_1 = document.getElementById("agreementTable");
+	
+}
+
+function formatPercentage(value) {
+    return `${parseFloat(value).toFixed(2).replace('.', ',')}%`;
+}
+
+function formatTotal(value) {
+    return parseInt(value).toLocaleString('fr-FR');
+}
+
+
+function showNotification(message) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.style.display = 'block';
+
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 3000); // Hide after 5 seconds
+}
+
+
+function generateTable() {
+    const resultTable = document.getElementById("resultTable");
+    const nbErreursTable = document.getElementById("Nb_Erreurs_WorkerID");
+    const headerRow = document.getElementById("headerRow");
+    const rows = resultTable.getElementsByTagName("tr");
+    const workerData = {};
+    let startCol = 0, endCol = 0;
+    let workerIdColIndex = -1;
+
+    const excludedEmptyAttributes = [
+        "cannxxxot_judge",
+        "exacxxxxt_match",
+        "irrexxxxlevant",
+        "possixxxxble_substitute"
+    ];
+
+    // Obtenir la date depuis le datepicker
+    const dateInput = document.getElementById('picking_day');
+    let weekNum = '', monthStr = '', formattedDate = '';
+    if (dateInput && dateInput.value) {
+        const selectedDate = new Date(dateInput.value);
+        const janFirst = new Date(selectedDate.getFullYear(), 0, 1);
+        const dayDiff = (selectedDate - janFirst + ((janFirst.getDay() + 6) % 7) * 86400000) / 86400000;
+        weekNum = Math.ceil(dayDiff / 7);
+        const months = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+        monthStr = months[selectedDate.getMonth()] + '-' + selectedDate.getFullYear();
+        formattedDate = selectedDate.toLocaleDateString('fr-FR');
+    }
+
+    while (headerRow.firstChild) headerRow.removeChild(headerRow.firstChild);
+
+    const headers = Array.from(rows[0].getElementsByTagName("th")).map(header => header.innerText.trim());
+    workerIdColIndex = headers.indexOf('workerid');
+    startCol = headers.indexOf('juge') + 1;
+    endCol = headers.indexOf('Jugement ASIN') - 1;
+
+    const errorColumns = headers.slice(startCol, endCol + 1);
+    const errorTotals = {};
+    const grandTotal = { Total: 0 };
+
+    for (let attr of errorColumns) errorTotals[attr] = 0;
+
+    for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName("td");
+        const workerid = cells[workerIdColIndex].innerText.trim();
+
+        if (!workerData[workerid]) {
+            workerData[workerid] = {};
+            for (let attr of errorColumns) {
+                workerData[workerid][attr] = 0;
+            }
+            workerData[workerid]["Total"] = 0;
+        }
+
+        for (let j = startCol; j <= endCol; j++) {
+            const attr = headers[j];
+            const value = cells[j].innerText.trim();
+            if (['i_maj', 'i_min', 'missing_min', 'missing_maj'].includes(value)) {
+                workerData[workerid][attr]++;
+                workerData[workerid]["Total"]++;
+                errorTotals[attr]++;
+                grandTotal["Total"]++;
+            }
+        }
+    }
+
+    // Remplacer noms d’attributs vides par "_" si tous les scores sont à 0
+    const renamedAttributes = {};
+    for (let attr of errorColumns) {
+        if (excludedEmptyAttributes.includes(attr) && errorTotals[attr] === 0) {
+            renamedAttributes[attr] = '_';
+        } else {
+            renamedAttributes[attr] = attr;
+        }
+    }
+
+    while (nbErreursTable.rows.length > 1) nbErreursTable.deleteRow(1);
+
+    for (const [workerid, data] of Object.entries(workerData)) {
+        const row = nbErreursTable.insertRow();
+
+        // Ajouter la date
+        row.insertCell().innerText = weekNum;
+        row.insertCell().innerText = monthStr;
+        row.insertCell().innerText = formattedDate;
+
+        row.insertCell().innerText = workerid;
+
+        for (let attr of errorColumns) {
+            row.insertCell().innerText = data[attr];
+        }
+        row.insertCell().innerText = data["Total"];
+    }
+
+    const totalRow = nbErreursTable.insertRow();
+    totalRow.insertCell().innerText = weekNum;
+    totalRow.insertCell().innerText = monthStr;
+    totalRow.insertCell().innerText = formattedDate;
+    totalRow.insertCell().innerText = "Grand Total";
+
+    for (let attr of errorColumns) {
+        totalRow.insertCell().innerText = errorTotals[attr];
+    }
+    totalRow.insertCell().innerText = grandTotal["Total"];
+
+    // Entêtes du tableau (ajoutés après le remplissage pour inclure renaming)
+    while (headerRow.firstChild) headerRow.removeChild(headerRow.firstChild);
+    const weekTh = document.createElement("th");
+    weekTh.innerText = "Weeks";
+    headerRow.appendChild(weekTh);
+    const monthTh = document.createElement("th");
+    monthTh.innerText = "Months";
+    headerRow.appendChild(monthTh);
+    const dateTh = document.createElement("th");
+    dateTh.innerText = "Date";
+    headerRow.appendChild(dateTh);
+
+    const workerTh = document.createElement("th");
+    workerTh.innerText = "workerid";
+    headerRow.appendChild(workerTh);
+
+    for (let attr of errorColumns) {
+        const th = document.createElement("th");
+        th.innerText = renamedAttributes[attr];
+        headerRow.appendChild(th);
+    }
+
+    const totalTh = document.createElement("th");
+    totalTh.innerText = "Total";
+    headerRow.appendChild(totalTh);
+}
+
+
+
+
+// Fonction pour masquer toutes les tables et afficher seulement celle spécifiée
+function showTable(tableId) {
+    // Masquer toutes les tables
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => table.classList.add('hidden'));
+    
+    // Afficher la table correspondante
+    const tableToShow = document.getElementById(tableId);
+    if (tableToShow) {
+        tableToShow.classList.remove('hidden');
+    }
+}
+
+// Boutons pour afficher les tables spécifiques
+
+
+
+
+function showTablePair(tableId1, tableId2) {
+    // Masquer toutes les tables
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => table.classList.add('hidden'));
+
+    // Afficher les deux tables de la paire
+    const tableToShow1 = document.getElementById(tableId1);
+    const tableToShow2 = document.getElementById(tableId2);
+    if (tableToShow1) {
+        tableToShow1.classList.remove('hidden');
+    }
+    if (tableToShow2) {
+        tableToShow2.classList.remove('hidden');
+    }
+}
+
+function extraire_brut() {
+    const table = document.getElementById("resultTable");
+    const rows = table.querySelectorAll("tr");
+    if (rows.length < 2) return;
+
+    const header = Array.from(rows[0].cells).map(cell => cell.textContent.trim());
+
+    const dateInput = document.getElementById('picking_day');
+    const indexInput = document.getElementById('picking_index');
+    let weekNum = '', formattedDate = '', yearStr = '', monthStr = '', indexValue = '';
+
+    if (dateInput && dateInput.value) {
+        const selectedDate = new Date(dateInput.value);
+        const janFirst = new Date(selectedDate.getFullYear(), 0, 1);
+        const dayDiff = (selectedDate - janFirst + ((janFirst.getDay() + 6) % 7) * 86400000) / 86400000;
+        weekNum = Math.ceil(dayDiff / 7);
+        formattedDate = selectedDate.toLocaleDateString('fr-FR');
+        yearStr = selectedDate.getFullYear();
+
+        const months = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+        const monthName = months[selectedDate.getMonth()];
+        monthStr = `${monthName}-${yearStr}`;
+    }
+
+    if (indexInput && indexInput.value) {
+        indexValue = indexInput.value;
+    }
+
+    const workerIndex = header.indexOf("workerid");
+
+    const excluded = [
+        "Jugement ASIN", "Jugement Assignement", "Jugement HitId",
+        "cannxxxot_judge", "irrexxxxlevant", "possixxxxble_substitute", "exacxxxxt_match", "juge"
+    ];
+    const errorHeaders = header.slice(8).filter(h => !excluded.includes(h));
+    const errorIndexes = errorHeaders.map(h => header.indexOf(h));
+
+    const grouped = {};
+
+    for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].cells;
+        const workerId = cells[workerIndex]?.textContent.trim();
+        if (!workerId) continue;
+        if (!grouped[workerId]) grouped[workerId] = [];
+        grouped[workerId].push(cells);
+    }
+
+    const error_brut = [];
+
+    for (const [workerId, lignes] of Object.entries(grouped)) {
+        let c_maj = 0, c_min = 0, i_maj = 0, i_min = 0, somme = 0;
+        const countByAttr = new Array(errorHeaders.length).fill(0);
+
+        lignes.forEach(cells => {
+			errorIndexes.forEach((colIdx, j) => {
+				const val = cells[colIdx]?.textContent.trim();
+				if (!val) return;
+
+				if (val === "c_maj") c_maj++;
+				else if (val === "c_min") c_min++;
+				else if (val === "i_maj" || val === "missing_maj") i_maj++;
+				else if (val === "i_min" || val === "missing_min") i_min++;
+
+				if (["i_maj", "i_min", "missing_maj", "missing_min"].includes(val)) {
+					countByAttr[j]++;
+				}
+
+				if (["c_maj", "c_min", "i_maj", "i_min", "missing_maj", "missing_min"].includes(val)) {
+				
+					somme++;
+				}
+			});
+		});
+
+
+        const row = [
+            yearStr,        // Years
+            monthStr,       // Months (ex: "juillet-2025")
+            weekNum,        // Weeks
+            formattedDate,  // Date-prod
+            indexValue,     // Index
+            workerId,       // workerid
+            c_maj,
+            c_min,
+            i_maj,
+            i_min,
+            somme,
+            ...countByAttr
+        ];
+
+        error_brut.push(row);
+    }
+
+    const finalHeader = [
+        "Years", "Months", "Weeks", "Date-prod", "Index", "workerid",
+        "Correct majority", "Correct minority",
+        "Incorrect majority", "Incorrect minority",
+        "somme answer",
+        ...errorHeaders
+    ];
+
+    error_brut.unshift(finalHeader);
+
+    const tableError = document.getElementById("error_table");
+    tableError.innerHTML = "";
+
+    error_brut.forEach((rowArr, rowIndex) => {
+        const tr = document.createElement("tr");
+        rowArr.forEach((cellText, cellIndex) => {
+            const cell = document.createElement(rowIndex === 0 ? "th" : "td");
+            cell.textContent = cellText;
+
+            if (cellIndex >= 6) {
+                cell.style.textAlign = "center";
+            }
+
+            tr.appendChild(cell);
+        });
+        tableError.appendChild(tr);
+    });
+
+    return error_brut;
+}
+
+
+
+
+
+//EXPORT BIG TABLE TO TSV FILE
+document.getElementById('exportButton').addEventListener('click', function() {
+        let table = document.getElementById('resultTable');
+        let rows = table.querySelectorAll('tr');
+        let tsv = [];
+
+        rows.forEach(row => {
+            let cells = row.querySelectorAll('th, td');
+            let rowArray = Array.from(cells).map(cell => cell.innerText.replace(/\s+/g, ' ').trim());
+            tsv.push(rowArray.join('\t'));
+        });
+
+        let blob = new Blob([tsv.join('\n')], { type: 'text/tsv' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = 'table_export.tsv';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+	
+	
+// DATE -01
+
+window.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('picking_day');
+    if (input) {
+      const now = new Date();
+      now.setDate(now.getDate() - 1); // J-1
+
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0'); // Mois (01-12)
+      const dd = String(now.getDate()).padStart(2, '0');      // Jour (01-31)
+
+      input.value = `${yyyy}-${mm}-${dd}`;
+    }
+  });
+  
+  
+  
+  
+  
+// Liste des fonctions à appeler avec délai entre chaque
+const simulations = [
+    { action: () => DetailedAttributConsensus(), table: 'consensusAttributDetailed' },
+    { action: () => calculateConsensusWorker(), table: 'consensusWorkerID' },
+    { action: () => calculateAccuracyWorkerID(), table: 'accuracyWorkerID' },
+    { action: () => extraire_brut(), table: 'error_table' },
+    { action: () => generateTable(), table: 'Nb_Erreurs_WorkerID' },
+    { action: () => executeBoth(), table: ['agreementTable', 'summaryTable'] },
+    { action: () => calculerScoreGlobale(), table: ['CRJ_Table1', 'CRJ_Table2'] }
+];
+
+
+
+
+// Fonction principale pour les exécuter avec délai
+async function lancerTraitementAutomatique() {
+    const notification = document.getElementById('notification');
+    const overlay = document.getElementById('progressOverlay');
+    const progressText = document.getElementById('progressText');
+
+    overlay.style.display = 'flex'; // Afficher le centre de chargement
+    notification.style.display = 'none';
+
+    const total = simulations.length;
+
+    for (let i = 0; i < total; i++) {
+        simulations[i].action();
+
+        // Mettre à jour le pourcentage
+        const percent = Math.round(((i + 1) / total) * 100);
+        progressText.textContent = `Traitement en cours... ${percent}%`;
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    // Fin du traitement
+    progressText.innerHTML = `<span class="icon">✅</span> Traitement terminé à 100%`;
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    overlay.style.display = 'none';
+
+    // Affiche la notification finale
+    //notification.textContent = 'Le traitement des données est terminé.';
+    //notification.style.display = 'block';
+
+    //setTimeout(() => {
+    //    notification.style.display = 'none';
+    //}, 3000);
+}
+
+
+
+
+// Masquer toutes les tables d’un coup
+function hideAllTables() {
+    const tableIds = [
+        'consensusAttributDetailed',
+        'consensusWorkerID',
+        'accuracyWorkerID',
+        'error_table',
+        'Nb_Erreurs_WorkerID',
+        'agreementTable',
+        'summaryTable',
+        'CRJ_Table1',
+        'CRJ_Table2'
+    ];
+    tableIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+
+// Affichage simple
+function showTable(id) {
+    hideAllTables();
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'table';
+}
+
+// Affichage double (paire de tableaux)
+function showTablePair(id1, id2) {
+    hideAllTables();
+    const el1 = document.getElementById(id1);
+    const el2 = document.getElementById(id2);
+    if (el1) el1.style.display = 'table';
+    if (el2) el2.style.display = 'table';
+}
+
+// Gestionnaire d’événements pour les radios
+document.querySelectorAll('input[name="tableSelector"]').forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    const val = e.target.value;
+    hideAllTables();
+
+    switch (val) {
+      case 'consensusAttributDetailed':
+        //DetailedAttributConsensus();
+        showTable('consensusAttributDetailed');
+        break;
+
+      case 'consensusWorkerID':
+        //calculateConsensusWorker();
+        showTable('consensusWorkerID');
+        break;
+
+      case 'accuracyWorkerID':
+        //calculateAccuracyWorkerID();
+        showTable('accuracyWorkerID');
+        break;
+
+      case 'error_table':
+        //extraire_brut();
+        showTable('error_table');
+        break;
+
+      case 'Nb_Erreurs_WorkerID':
+        //generateTable();
+        showTable('Nb_Erreurs_WorkerID');
+        break;
+
+      case 'agreementTable_summaryTable':
+        //executeBoth();
+        showTablePair('agreementTable', 'summaryTable');
+        break;
+
+      case 'CRJ_Table1_CRJ_Table2':
+        // Simule le clic du bouton original si nécessaire
+        //calculerScoreGlobale();
+        // OU directement :
+        showTablePair('CRJ_Table1', 'CRJ_Table2');
+        break;
+    }
+  });
+});
+
+//AFFICHER FICHIER COMPILE TSV en PREMIER LIEU
+window.addEventListener("DOMContentLoaded", () => {
+    // Forcer la valeur par défaut
+    document.getElementById("dataSource").value = "tsv_file";
+
+    // Forcer le déclenchement du listener `change`
+    document.getElementById("dataSource").dispatchEvent(new Event("change"));
+});
+
+</script>
+</html>

@@ -1,0 +1,2851 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Visualisation HIT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <style>
+  /* style pour les asin-block sans mot majoritaire */
+.asin-block.no-major {
+  background-color: #feb9b9 !important; /* rouge clair */
+  color: black !important;
+}
+.asin-block.major {
+background-color:#b8f0b9 !important; /* vert très clair */
+color: black !important;
+}
+/* style pour mots majoritaires surlignés */
+.highlight-major {
+  background: #f9ef03;
+  border-bottom: 2px solid #28A745;
+  color: #155724;
+}
+  .hidden {
+  display: none !important;
+}
+body {
+  overflow: visible; /* ou auto, mais pas hidden */
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  background-color: #f4f4f9;
+  color: #333;
+  margin: 20px;
+  padding-top: 110px; /* Ajuste selon la hauteur réelle de #controls */
+}
+
+#controls {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #fff;
+  padding: 15px 20px;
+  border-bottom: 1px solid #ccc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 15px;
+  align-items: center;
+  align-items: center;
+
+    /* 🔹 Ajouts */
+    width: 80%;       /* ou en px si tu veux fixe */
+    left: 50%;
+    transform: translateX(-50%); /* centrage horizontal */
+    border-radius: 8px; /* optionnel pour un style flottant */
+}
+
+#controls input[type="file"],
+#controls input[type="text"],
+#controls button {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+#controls button {
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+#controls button:hover {
+  background-color: #0056b3;
+}
+
+
+
+#hitContainer {
+  margin-left: 15cm;
+}
+
+#informations {
+  position: fixed;
+  top: 120px;
+  left: 0.5cm;
+  width: 14cm;
+  min-height: 150px; /* 50px × 3 */
+  max-height: 1200px; /* 400px × 3 */
+  height: 865px;
+  background: #f1f1f1;
+  padding: 0; /* Supprime le padding ici */
+  border: 3px solid #888;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  z-index: 999;
+  line-height: 1.4;
+  resize: both;
+  overflow: hidden; /* empêche toute scrollbar */
+  cursor: default;
+  display: none;
+}
+
+#dragHeader {
+  cursor: grab;
+  padding: 18px 13px; /* tu remets le padding ici */
+  background: #ccc;
+  border-bottom: 1px solid #aaa;
+  user-select: none;
+}
+
+#infoContent {
+  padding: 18px 13px; /* même padding que tu avais dans #informations */
+  overflow-y: auto;
+  max-height: 340px; /* max-height total - header */
+  word-wrap: break-word;      /* Permet de casser les mots trop longs */
+  overflow-wrap: break-word;  /* Support moderne */
+  white-space: normal;        /* Pour s'assurer que le texte peut revenir à la ligne */
+  max-width: 100%;            /* Ne dépasse jamais la largeur du parent */
+  box-sizing: border-box;     /* Inclut le padding dans la largeur */
+}
+
+
+
+
+.asin-block {
+    display: flex;
+    align-items: flex-start;
+    border: 2px solid #999;
+    font-size: 15px;
+    border-left: 6px solid #888;
+    padding: 14px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(50, 50, 50, 0.3);
+    gap: 15px;
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    /* Centrage horizontal */
+    margin-left: auto;
+    margin-right: 0;
+}
+
+/* Infos produit */
+.asin-info {
+  width: 300px;
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+}
+
+/* Image produit */
+.preview-img {
+  width: 4cm;
+  height: 4cm;
+  object-fit: contain;
+  cursor: pointer;
+  margin-top: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* Colonnes juges et travailleurs */
+.worker-column {
+  min-width: 110px;
+  max-width: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 12px;
+  text-align: center;
+  padding: 6px;
+}
+
+.worker-column.judge {
+  align-items: flex-start;
+  padding: 8px 12px;
+  background-color: #fafafa;
+  border-right: 1px solid #eee;
+  min-width: 160px;
+  max-width: 240px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  margin-bottom: 3px;
+  font-weight: normal;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.majority {
+  background-color: #d4edda;       /* Vert clair */
+  color: #155724;                  /* Vert foncé */
+  font-weight: bold;               /* Gras */
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+
+.minority {
+  background-color: #cc0000;       /* Rouge foncé */
+  color: #ffffff;                  /* Blanc */
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+
+
+textarea {
+  margin-top: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 12px;
+  padding: 4px;
+  width: 100%;
+  resize: vertical;
+  min-height: 40px;
+}
+
+label select {
+  margin-top: 2px;
+  padding: 3px;
+  font-size: 12px;
+}
+
+#floatingASINCanvas {
+  position: fixed;
+  top: 50px;
+  right: 20px;
+  z-index: 9999;
+  cursor: move;
+  border: 2px solid #444;
+  background: white;
+  display: none;
+}
+
+#floatingQueryWrapper.dragging {
+  cursor: move;
+}
+#floatingQueryWrapper {
+  cursor: move;
+  touch-action: none;         /* Important pour éviter les effets "glissants" */
+  user-select: none;          /* Empêche la sélection de texte ou image */
+  position: fixed !important;
+  top: 450px;
+  left: 40px;
+  width: 400px;
+  z-index: 9999;
+  background-color: white;
+  display: none;
+  border: 2px solid #ccc;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+#floatingQueryImage {
+  width: 100%;
+  display: block;
+  transition: transform 0.3s ease;
+  cursor:move;
+}
+
+#queryBBox {
+  position: absolute;
+  border: 2px solid red;
+  background-color: rgba(255, 0, 0, 0.2);
+  display: none;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #333;
+  color: white;
+  padding: 10px 14px;
+  border-radius: 6px;
+  z-index: 10000;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+#progressOverlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  backdrop-filter: blur(3px);
+}
+
+#progressBox {
+  text-align: center;
+  background: white;
+  padding: 20px 30px;
+  border-radius: 20px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+}
+
+#progressText {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.judge-title {
+  font-weight: bold;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: #333;
+  text-align: left;
+}
+
+#automatisme {
+  background-color: #fff4e5;       /* fond léger orange pâle */
+  border: 2px solid #ff9900;       /* bordure orange vif */
+  color: #663300;                  /* texte marron foncé */
+  font-weight: bold;
+  padding: 8px 12px;
+  border-radius: 6px;
+  width: 100%;
+  max-width: 500px;
+  box-sizing: border-box;
+  user-select: none;               /* désactive la sélection texte */
+  cursor: not-allowed;             /* curseur interdit (visuel d’avertissement) */
+  transition: background-color 0.3s ease;
+}
+
+/* Si on veut permettre quand même la modification au focus */
+#automatisme:focus {
+  background-color: #fff8dc;       /* un peu plus clair au focus */
+  cursor: text;                   /* curseur normal de saisie */
+  user-select: text;              /* selection possible */
+  outline: none;
+  border-color: #ff6600;          /* bordure orange plus vif */
+}
+
+/* Notification verte centrée */
+#notification {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #d4edda;  /* vert clair */
+  color: #155724;             /* vert foncé */
+  padding: 15px 30px;
+  border: 1.5px solid #c3e6cb;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 16px;
+  z-index: 100000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+#notification.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#btnSaveData1{
+  position: fixed;
+  bottom: 40px;
+  left: 170px;
+  transform: translateX(-50%);
+  background-color: #28a745;
+  color: white;
+  font-size: 18px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+#btnSaveData2 {
+  position: fixed;
+  bottom: 100px;
+  left: 100px;
+  transform: translateX(-50%);
+  background-color: #28a745;
+  color: white;
+  font-size: 18px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+#done:hover, #btnSaveData2:hover {
+  background-color: #218838;
+}
+#done {
+  display: none;
+}
+
+#btnSaveData {
+  display: none;
+}
+#btnSaveData, #btnSaveData1 {
+  background-color: #dc3545;
+  color: white;
+}
+
+#btnSaveData:hover, #btnSaveData1:hover {
+  background-color: #c82333;
+}
+
+
+#controls {
+  transition: transform 0.3s ease-in-out;
+}
+
+#controls.hidden {
+  transform: translateY(-100%);
+}
+
+#tableaudetailsasin {
+  width: 100%;
+  display:block;
+  border-collapse: collapse;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 13px;
+  table-layout: fixed; /* Important pour que overflow fonctionne */
+}
+
+#tableaudetailsasin th {
+  background-color: #000;
+  color: #fff;
+  padding: 8px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+#tableaudetailsasin td {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#tableaudetailsasin tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+#tableaudetailsasin tr:hover {
+  background-color: #f1f1f1;
+}
+
+
+
+element.style {
+    color: rgb(0, 102, 204);
+    font-size: 15px;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+</head>
+<body>
+<button id="toggleControlsBtn" style="position:fixed; top:3px; right:10px; z-index:10001;">▲</button>
+
+  <div id="controls">
+    <input type="file" id="tsvInput" accept=".tsv" />
+    <label for="hitIdInput">HITId :</label>
+	<input type="text" id="hitIdInput" placeholder="Tapez ou collez un HITId ici" autocomplete="off" style="width: 300px;" />
+    <button id="btnShowHIT">Afficher</button>
+	<button id="done">Terminer</button>
+	<button id="btnSaveData">Terminer => Google Sheet</button>
+	<label for="sheetUrlInput">URL Google Sheet cible :</label>
+    <input type="text" id="sheetUrlInput" placeholder="Entrez l'URL du fichier Google Sheet" style="width: 400px;" />
+	<button id="verifierdata">Verifier</button>
+	<p id="verifMessage"></p>
+	<input type="text" id="automatisme" placeholder="URL de votre script Apps Script (https://script.google.com/macros/s/...)">
+	<div id="scoreSummary" style="margin-top: 10px; font-weight: bold; font-size: 1.1em;"></div>
+
+
+	<div id="msgBox"></div>
+  </div>
+
+  <div id="hitContainer"></div>
+  
+  
+<!-- 🟡 Overlay sablier + progression -->
+<div id="progressOverlay"
+     style="display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            pointer-events: all;
+            backdrop-filter: blur(3px);">
+  <div id="progressBox"
+       style="text-align: center;
+              background: white;
+              padding: 20px 30px;
+              border-radius: 20px;
+              box-shadow: 0 0 15px rgba(0,0,0,0.3);">
+    <div class="icon" style="margin-bottom: 15px;">
+      <img src="vercel_sablier.gif"
+           alt="Chargement..." width="120">
+    </div>
+    <div id="progressText" style="font-weight: bold; font-size: 18px;">Chargement...</div>
+  </div>
+</div>
+
+<!-- Flottant en haut à droite -->
+ <div id="floatingQueryWrapper">
+    <div id="queryRotatableWrapper" style="position: relative; width: fit-content;">
+      <img id="floatingQueryImage" src="" alt="Image Query" style="display: block; max-width: 100%;" />
+      <div id="queryBBox"></div>
+    </div>
+  </div>
+
+<!-- ✅ Notification qui disparaît -->
+<div id="notifMessage" class="notification" style="display:none;"></div>
+
+</body>
+<div id="informations" style="display:none; position: fixed; ...">
+  <div id="dragHeader" style="font-weight: bold; text-align: center;">
+  -----------Informations QUERY-----------
+</div>
+  <div id="infoContent"></div>
+</div>
+  <canvas id="floatingASINCanvas"></canvas>
+
+<table id="tableaudetailsasin" style="width: 100%; border-collapse: collapse; margin-bottom: 20px; display: none;">
+  <thead>
+    <tr>
+      <th>hitid</th>
+      <th>AssignmentId</th>
+      <th>workerid</th>
+      <th>Input.imageURL</th>
+      <th>Input.bbox</th>
+      <th>Input.content</th>
+      <th>Answer.output_data</th>
+      <th>amazon.image</th>
+      <th>Marketplace</th>
+      <th>Input.matches</th>
+      <th>key</th>
+      <th>assin_json</th>
+      <th>assin_juge_json</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- Les lignes seront ajoutées ici dynamiquement -->
+  </tbody>
+
+</table>
+<table id="brute_table" class="hidden"></table>
+
+
+
+
+<button id="btnSaveData1">Terminer => Google Sheet</button>
+<button id="btnSaveData2">Terminer</button>
+
+<div id="progressOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#ffffffcc; z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
+  <div id="progressBox">
+    <div class="icon">
+      <img src="https://cdn.pixabay.com/animation/2023/03/12/21/17/21-17-57-902_512.gif" alt="Chargement..." width="180">
+    </div>
+    <div id="progressText" style="font-weight:bold; font-size:18px;">Chargement...</div>
+  </div>
+</div>
+<div id="notification"></div>
+</body>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <script src="papaparse_rado.js"></script>
+  <script>
+// VARIABLES GLOBALES
+let currentHitRow = null; // accessible partout
+let ATTRIBUTES = [];      // sera défini dynamiquement selon le type
+const allTitles = []; // à définir en dehors, scope global ou dans showHitid
+
+let tsvDataRaw = [];
+let currentFileName = "";
+
+document.getElementById('tsvInput').addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  currentFileName = file.name;
+  
+  const lastStoredFile = localStorage.getItem("lastFileName");
+  
+  const sheetUrlInput = document.getElementById("sheetUrlInput");
+
+	sheetUrlInput.addEventListener("input", () => {
+	  localStorage.setItem("last_URL_Sheet_DA", sheetUrlInput.value.trim());
+	});
+
+  if (lastStoredFile !== currentFileName) {
+    // Nouveau fichier chargé -> suppression données de jugement + commentaires
+    localStorage.removeItem("judgeAnswers");
+
+    // Suppression commentaires liés
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith("comment_")) localStorage.removeItem(k);
+    });
+
+    localStorage.setItem("lastFileName", currentFileName);
+    localStorage.removeItem("currentHitId"); // on efface l'ancien HITId sauvegardé
+  }
+
+Papa.parse(file, {
+  header: true,
+  delimiter: '\t',
+  complete: function (results) {
+    tsvDataRaw = results.data;
+    showNotification("Fichier chargé avec succès !");
+
+
+    // 🔍 Extraction et concaténation de toutes les réponses (minuscules)
+    const allAnswers = tsvDataRaw.map(r => r['Answer.output_data']).filter(Boolean);
+    let contenuConcat = allAnswers.join(" ").toLowerCase();
+
+    // 🧩 Liste attributs spécifiques "Fourniture"
+    const FOURNITURE_ATTRS = [
+      "support_type", "shape", "extra_features", "color",
+      "wrong_age_group", "material", "location", "pattern"
+    ];
+
+    // 🔎 Détection des attributs par type
+    const hasFourniture = FOURNITURE_ATTRS.some(attr => contenuConcat.includes(attr));
+    const hasRelevanceLabel = contenuConcat.includes("relevance_label");
+
+    // 🎯 Variables pour le type et la couleur fond
+    let detectedType = '';
+    let backgroundColor = '';
+    let baseAttributes = [];
+
+    if (hasFourniture && hasRelevanceLabel) {
+      detectedType = "FR IRR"; // Fourniture avec relevance_label
+	  window.detectedType = detectedType;
+      backgroundColor = '#d1c4e9'; // violet clair (modifiable)
+      baseAttributes = [
+        "asin_image_not_load", "no_difference", "wrong_category", "wrong_age_group",
+        "has_product_difference", "is_wrong_packaging_overlay", "support_type", "shape",
+        "size", "extra_features", "color", "material", "location", "pattern", "relevance_label"
+      ];
+    } else if (hasFourniture && !hasRelevanceLabel) {
+      detectedType = "FR"; // Fourniture simple
+	  window.detectedType = detectedType;
+      backgroundColor = '#f2f0f0'; // gris clair (modifiable)
+      baseAttributes = [
+        "asin_image_not_load", "no_difference", "wrong_category", "wrong_age_group",
+        "has_product_difference", "is_wrong_packaging_overlay", "support_type", "shape",
+        "size", "extra_features", "color", "material", "location", "pattern"
+      ];
+    } else if (!hasFourniture && hasRelevanceLabel) {
+      detectedType = "CS IRR"; // CS avec relevance_label
+	  window.detectedType = detectedType;
+      backgroundColor = '#bbdefb'; // bleu clair (modifiable)
+      baseAttributes = [
+        "asin_image_not_load", "no_difference", "wrong_category",
+        "has_product_difference", "is_wrong_characteristic",
+        "is_wrong_size_or_count", "is_wrong_bundle", "is_wrong_packaging_overlay", "relevance_label"
+      ];
+    } else {
+      detectedType = "CS"; // CS simple
+	  window.detectedType = detectedType;
+      backgroundColor = '#e6f7ff'; // bleu très clair (modifiable)
+      baseAttributes = [
+        "asin_image_not_load", "no_difference", "wrong_category",
+        "has_product_difference", "is_wrong_characteristic",
+        "is_wrong_size_or_count", "is_wrong_bundle", "is_wrong_packaging_overlay"
+      ];
+    }
+
+    ATTRIBUTES = baseAttributes;
+    document.body.style.backgroundColor = backgroundColor;
+
+    //console.log("🔍 Type détecté :", detectedType);
+    //console.log("📦 Attributs utilisés :", ATTRIBUTES);
+	// ✅ Si nouveau fichier → on affiche automatiquement le 1er HIT
+    if (lastStoredFile !== currentFileName) {
+      const firstValidRow = tsvDataRaw.find(r => r.HITId); // on sécurise
+      if (firstValidRow) {
+        const firstHitId = firstValidRow.HITId;
+        document.getElementById('hitIdInput').value = firstHitId;
+        setTimeout(() => showHIT(firstHitId), 100);
+      }
+    }
+
+    // 🎯 Recharger automatiquement le HITId précédent si présent
+    const lastHitId = localStorage.getItem("currentHitId");
+    if (lastHitId) {
+      document.getElementById('hitIdInput').value = lastHitId;
+      setTimeout(() => showHIT(lastHitId), 100);
+    }
+  }
+});
+
+
+});
+
+function updateHitIdList() {
+  const select = document.getElementById('hitIdInput');
+  select.innerHTML = ''; // Vide le select
+
+  const hitIdSet = new Set();
+  tsvDataRaw.forEach(row => {
+    if (row.HITId) {
+      const hitId = row.HITId.trim();
+      if (!hitIdSet.has(hitId)) {
+        hitIdSet.add(hitId);
+        const option = document.createElement('option');
+        option.value = hitId;
+        option.textContent = hitId;  // Affiche le texte visible
+        select.appendChild(option);
+      }
+    }
+  });
+
+  // Si un HITId est déjà stocké dans localStorage, on le sélectionne
+  const currentHitId = localStorage.getItem("currentHitId");
+  if (currentHitId && hitIdSet.has(currentHitId)) {
+    select.value = currentHitId;
+  } else {
+    select.selectedIndex = -1; // Pas de sélection par défaut
+  }
+}
+
+///ICI LE CODE DE CLICK BOUTON Afficher
+document.getElementById('btnShowHIT').addEventListener('click', () => {
+  const newHitId = document.getElementById('hitIdInput').value.trim();
+  if (!newHitId) return alert("Aiza ze Hitid f'ahoana hozy Enao?");
+  if (!tsvDataRaw.length) return alert("F'angah tsy nampiakatra  TSV aloha f'ahoana hozy Enao?");
+
+  // Suppression commentaires non liés au nouveau HITId
+  Object.keys(localStorage).forEach(k => {
+    if (k.startsWith("comment_") && !k.includes(newHitId)) {
+      localStorage.removeItem(k);
+    }
+  });
+
+  // Sauvegarde HITId courant
+  localStorage.setItem("currentHitId", newHitId);
+
+  showHIT(newHitId);
+});
+
+///MIFARANA ETO LE CODE DE CLICK BOUTON Afficher
+
+// Affichage automatique au changement ou saisie dans le champ HITId
+
+
+function showHIT(hitId) {
+  //console.log("HITId reçu:", hitId);
+  const hitContainer = document.getElementById('hitContainer');
+  hitContainer.innerHTML = '';
+  // Vide le tableau global de titres
+  allTitles.length = 0; // si allTitles est const tableau, ou allTitles = [] si let
+
+const rows = tsvDataRaw.filter(r => r.HITId === hitId);
+//console.log("Nombre de lignes trouvées:", rows.length);
+if (!rows.length) return;
+
+currentHitRow = rows[0];
+localStorage.setItem("currentHitId", hitId);
+const savedJudgeAnswers = JSON.parse(localStorage.getItem("judgeAnswers") || '{}');
+
+// ======== Affichage BBOX et image ========
+const queryImg = document.getElementById("floatingQueryImage");
+const queryBBox = document.getElementById("queryBBox");
+const queryWrapper = document.getElementById("floatingQueryWrapper");
+
+queryImg.src = rows[0]['Input.imageURL'];
+resetQueryTransform();
+queryWrapper.style.display = "block";
+
+// 🆕 Reset transform
+queryWrapper.style.transform = 'translate(0px, 0px) scale(1) rotate(0deg)';
+queryWrapper.dataset.x = 0;
+queryWrapper.dataset.y = 0;
+queryWrapper.dataset.scale = 1;
+queryWrapper.dataset.rotation = 0;
+
+queryImg.onload = () => {
+  let bbox;
+  try {
+    const bboxRaw = rows[0]['Input.bbox'];
+    bbox = typeof bboxRaw === 'string' ? JSON.parse(bboxRaw) : bboxRaw;
+    //console.log("✅ BBOX détectée :", bbox);
+  } catch (e) {
+    console.warn("❌ Bounding box invalide:", rows[0]['Input.bbox']);
+    bbox = null;
+  }
+
+  const scaleX = queryImg.clientWidth / queryImg.naturalWidth;
+  const scaleY = queryImg.clientHeight / queryImg.naturalHeight;
+
+  let x, y, width, height;
+
+  if (bbox && typeof bbox.tlx === 'number' && typeof bbox.brx === 'number' &&
+      typeof bbox.tly === 'number' && typeof bbox.bry === 'number') {
+    x = bbox.tlx;
+    y = bbox.tly;
+    width = bbox.brx - bbox.tlx;
+    height = bbox.bry - bbox.tly;
+  } else {
+    console.warn("⚠️ BBOX invalide ou absente. Valeur de test utilisée.");
+    x = 50; y = 50; width = 120; height = 80;
+  }
+
+  queryBBox.style.left = `${x * scaleX}px`;
+  queryBBox.style.top = `${y * scaleY}px`;
+  queryBBox.style.width = `${width * scaleX}px`;
+  queryBBox.style.height = `${height * scaleY}px`;
+  queryBBox.style.display = 'block';
+};
+
+//ZOOM IMAGE QUERY
+// ======== 🆕 Zoom via molette (fluide et constant) ========
+queryWrapper.addEventListener("wheel", (e) => {
+  e.preventDefault();
+
+  let scale = parseFloat(queryWrapper.dataset.scale) || 1;
+  const step = 0.05; // 5% par cran
+
+  // Zoom in/out
+  scale += (e.deltaY < 0 ? step : -step);
+
+  // ✅ Clamp entre 20% et 200%
+  scale = Math.min(Math.max(scale, 0.2), 2);
+
+  queryWrapper.dataset.scale = scale;
+
+  const x = parseFloat(queryWrapper.dataset.x) || 0;
+  const y = parseFloat(queryWrapper.dataset.y) || 0;
+  const rotation = parseFloat(queryWrapper.dataset.rotation) || 0;
+
+  queryWrapper.style.transform =
+    `translate(${x}px, ${y}px) scale(${scale}) rotate(${rotation}deg)`;
+
+  console.log(`QUERY: ${Math.round(scale * 100)}%`);
+});
+// Reset complet avant d’afficher l’image et BBox
+function resetQueryTransform() {
+  queryWrapper.style.transform = 'translate(0px, 0px) scale(1) rotate(0deg)';
+  queryWrapper.dataset.x = 0;
+  queryWrapper.dataset.y = 0;
+  queryWrapper.dataset.scale = 1;
+  queryWrapper.dataset.rotation = 0;
+  currentQueryZoom = 1;       // si tu as des variables JS pour le zoom
+  currentQueryRotation = 0;   // idem pour rotation
+}
+
+// ======== Rotation avec double clic (ajoute +90° en continu) ========
+queryWrapper.ondblclick = () => {
+  let rotation = parseFloat(queryWrapper.dataset.rotation) || 0;
+  rotation += 90; // ➕ Ajoute simplement 90 à chaque double-clic
+  queryWrapper.dataset.rotation = rotation;
+
+  const scale = parseFloat(queryWrapper.dataset.scale) || 1;
+  const x = parseFloat(queryWrapper.dataset.x) || 0;
+  const y = parseFloat(queryWrapper.dataset.y) || 0;
+
+  // Transition douce
+  queryWrapper.style.transition = "transform 0.3s ease";
+  queryWrapper.style.transform =
+    `translate(${x}px, ${y}px) scale(${scale}) rotate(${rotation}deg)`;
+
+  setTimeout(() => {
+    queryWrapper.style.transition = ""; // reset après l’anim
+  }, 300);
+};
+
+ 
+
+
+
+
+
+// ======== Préparation liste ASIN ========
+const asinSet = new Set();
+rows.forEach(row => {
+  const matchArray = parseFixedJSON(row['Input.matches'] || '[]');
+  matchArray.forEach(match => asinSet.add(match.asin));
+});
+const asinList = Array.from(asinSet);
+
+asinList.forEach(asin => {
+  const asinBlock = document.createElement('div');
+  asinBlock.className = 'asin-block';
+  const index = asinList.indexOf(asin);
+  asinBlock.style.backgroundColor = (index % 2 === 0) ? '#f9f9fc' : '#ffffff';
+
+  const asinInfo = document.createElement('div');
+  asinInfo.className = 'asin-info';
+
+  // === Lien ASIN (ou affichage texte bleu si ThirdParty)
+  const asinLink = document.createElement('a');
+  const asinText = document.createElement('span');
+  const marketplace = rows[0]['Input.marketplace']?.toUpperCase?.() || 'US';
+  const domains = {
+    IN: 'www.amazon.in', FR: 'www.amazon.fr', UK: 'www.amazon.co.uk',
+    DE: 'www.amazon.de', IT: 'www.amazon.it', US: 'www.amazon.com'
+  };
+  const domain = domains[marketplace] || 'www.amazon.com';
+
+  if (asin.startsWith('ThirdParty-')) {
+    asinText.textContent = asin;
+    asinText.style.color = "#0066cc";
+    asinText.style.fontSize = "15px";
+    asinInfo.appendChild(asinText);
+  } else {
+    asinLink.href = `https://${domain}/dp/${asin}`;
+    asinLink.target = "_blank";
+	asinText.textContent = asin;
+	asinText.style.display = "none";  // cache le texte ici
+	asinLink.textContent = asin;
+	asinLink.style.color = "#0066cc";
+    asinLink.style.fontSize = "15px";
+    asinInfo.appendChild(asinLink);
+	asinInfo.appendChild(asinText);
+  }
+
+  // === Récupération des données pour cet ASIN
+  const matches = parseFixedJSON(rows[0]['Input.matches'] || '[]');
+  const asinMatch = matches.find(m => m.asin === asin);
+
+  if (asinMatch) {
+    // Affichage du titre
+    if (asinMatch.product_title) {
+	  allTitles.push(asinMatch.product_title);
+      const title = document.createElement('div');
+      title.textContent = asinMatch.product_title;
+      title.style.fontSize = "15px";
+      title.style.margin = "4px 0";
+      asinInfo.appendChild(title);
+    }
+
+    // Affichage du lien Product URL si non vide
+    if (asinMatch.product_url && asinMatch.product_url.trim() !== "") {
+      const productLink = document.createElement('a');
+      productLink.href = asinMatch.product_url;
+      productLink.target = "_blank";
+	  productLink.textContent = productLink;
+      productLink.style.display = "block";
+      productLink.style.fontSize = "15px";
+      productLink.style.color = "#0066cc";
+      productLink.style.marginBottom = "4px";
+      asinInfo.appendChild(productLink);
+    }
+
+    // Affichage du lien image_url si existe
+    if (asinMatch.image_url && asinMatch.image_url.trim() !== "") {
+      const imageLink = document.createElement('a');
+      imageLink.href = asinMatch.image_url;
+      imageLink.target = "_blank";
+      imageLink.textContent = "Image Link";
+      //imageLink.style.display = "block";
+      imageLink.style.fontSize = "18px";
+      imageLink.style.color = "#0066cc";
+      imageLink.style.marginBottom = "15px";
+	  imageLink.style.marginLeft = "1px";
+      asinInfo.appendChild(imageLink);
+    }
+  }
+//FIN MODIFICATION ICI
+
+const preview = findImage(rows[0], asin);
+if (preview) {
+  const img = document.createElement('img');
+  img.src = preview;
+  img.className = 'preview-img';
+  img.onclick = () => {
+    // 🔹 Réinitialiser zoom et rotation ici
+    //resetZoomAndRotation();
+	    // 🔹 Reset du canvas avant d'afficher la nouvelle image
+    resetCanvasTransform();
+
+    // 🔹 Afficher la nouvelle image
+    showASINImage(preview);
+  };
+  asinInfo.appendChild(img);
+}
+
+
+// Exemple de fonction pour réinitialiser les transformations
+function resetZoomAndRotation() {
+  // Sélectionne le canvas sur lequel tu appliques le zoom
+  const canvas = document.querySelector('#canvas'); // adapte selon ton code
+  if (canvas) {
+    // Réinitialise les variables de dataset
+    canvas.dataset.scale = 1;
+    canvas.dataset.rotation = 0;
+    canvas.dataset.x = 0;
+    canvas.dataset.y = 0;
+
+    // Réinitialise le style CSS
+    canvas.style.transform = 'translate(0px, 0px) scale(1) rotate(0deg)';
+
+    // Réinitialise tes variables JS si tu en utilises
+    currentZoom = 1;
+    currentRotation = 0;
+  }
+}
+
+  asinBlock.appendChild(asinInfo);
+
+  // === GROUPAGE DES WORKERS + MAJORITÉ
+  const grouped = groupByWorkerId(rows, asin);
+  const counts = {}, responses = {};
+  for (const [workerId, values] of Object.entries(grouped)) {
+    const simpleKey = values.filter(v => !v.startsWith("relevance_label:")).sort().join('|');
+    counts[simpleKey] = (counts[simpleKey] || 0) + 1;
+    responses[workerId] = values;
+  }
+  const maxCount = Math.max(...Object.values(counts));
+  const majorKeys = Object.keys(counts).filter(k => counts[k] === maxCount);
+  const majorSimpleAttrs = majorKeys[0]?.split('|') || [];
+
+  // === Réponse Juge
+  const judgeCol = document.createElement('div');
+  judgeCol.className = 'worker-column judge';
+  const judgeTitle = document.createElement('div');
+  judgeTitle.className = 'judge-title';
+  judgeTitle.textContent = "Réponse Juge :";
+  judgeCol.appendChild(judgeTitle);
+
+  const judgeGroup = document.createElement('div');
+  judgeGroup.className = 'checkbox-group';
+  const storageKey = `${hitId}_${asin}`;
+  const stored = savedJudgeAnswers[storageKey] || [];
+
+  ATTRIBUTES.filter(attr => attr !== "relevance_label").forEach(attr => {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.name = `${asin}_${attr}`;
+    cb.className = 'juge-checkbox';
+    cb.value = attr;
+
+    // coche si majorité ou déjà stocké
+    if (stored.includes(attr) || majorSimpleAttrs.includes(attr)) cb.checked = true;
+
+    cb.addEventListener('change', () => {
+      const currentStorage = JSON.parse(localStorage.getItem("judgeAnswers") || '{}');
+      const current = currentStorage[storageKey] || [];
+      if (cb.checked && !current.includes(attr)) current.push(attr);
+      if (!cb.checked && current.includes(attr)) current.splice(current.indexOf(attr), 1);
+      currentStorage[storageKey] = current;
+      localStorage.setItem("judgeAnswers", JSON.stringify(currentStorage));
+    });
+
+    label.appendChild(cb);
+    label.append(` ${attr}`);
+    judgeGroup.appendChild(label);
+  });
+
+  // === Calcul majorityRel AVANT affichage des Workers ===
+let majorityRel = null;
+if (ATTRIBUTES.includes("relevance_label")) {
+  const allRelValues = Object.values(responses)
+    .map(v => v.find(a => a.startsWith("relevance_label:")))
+    .map(a => a ? a.split(":")[1].trim() : null)
+    .filter(v => v != null);
+  const relCount = {};
+  allRelValues.forEach(val => relCount[val] = (relCount[val] || 0) + 1);
+  const maxRel = Math.max(...Object.values(relCount));
+  majorityRel = Object.keys(relCount).find(k => relCount[k] === maxRel);
+}
+
+// === Réponse juge : relevance_label
+if (ATTRIBUTES.includes("relevance_label")) {
+  const label = document.createElement('label');
+  label.textContent = " relevance_label: ";
+  label.style.display = "block";
+  label.style.marginTop = "5px";
+
+  const select = document.createElement('select');
+  select.name = `${asin}_relevance_label`;
+
+  ["", "irrelevant", "possible_substitute", "cannot_judge", "exact_match"].forEach(val => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = val || "-- Choisir --";
+    select.appendChild(opt);
+  });
+
+  const storedRel = stored.find(v => v.startsWith("relevance_label:"));
+  select.value = storedRel ? storedRel.split(":")[1].trim() : majorityRel || "";
+
+  select.addEventListener('change', () => {
+    const currentStorage = JSON.parse(localStorage.getItem("judgeAnswers") || '{}');
+    let current = currentStorage[storageKey] || [];
+    current = current.filter(v => !v.startsWith("relevance_label:"));
+    if (select.value) current.push(`relevance_label: ${select.value}`);
+    currentStorage[storageKey] = current;
+    localStorage.setItem("judgeAnswers", JSON.stringify(currentStorage));
+  });
+
+  label.appendChild(select);
+  judgeGroup.appendChild(label);
+}
+
+  judgeCol.appendChild(judgeGroup);
+  asinBlock.appendChild(judgeCol);
+
+  // === Affichage des Workers
+  for (const [workerId, values] of Object.entries(responses)) {
+    const col = document.createElement('div');
+    col.className = 'worker-column';
+    col.innerHTML = `<b>${workerId}</b><br>`;
+
+    const simpleAttrs = values.filter(v => !v.startsWith("relevance_label:")).sort();
+    const relAttr = values.find(v => v.startsWith("relevance_label:"));
+    const relValue = relAttr ? relAttr.split(":")[1].trim() : null;
+    const simpleKey = simpleAttrs.join('|');
+    const isMajor = majorKeys.includes(simpleKey);
+
+    simpleAttrs.forEach(val => {
+      const span = document.createElement('div');
+      span.textContent = val;
+      span.className = isMajor ? 'majority' : 'minority';
+      col.appendChild(span);
+    });
+
+    if (relValue) {
+      const isMajorRel = relValue === majorityRel;
+      const relSpan = document.createElement('div');
+      relSpan.textContent = relValue;
+      relSpan.className = isMajorRel ? 'majority' : 'minority';
+      relSpan.style.fontStyle = 'italic';
+      col.appendChild(relSpan);
+    }
+
+    const commentBox = document.createElement('textarea');
+    commentBox.rows = 2;
+    commentBox.placeholder = "";
+    commentBox.style.marginTop = "4px";
+    commentBox.style.width = "100%";
+    const commentKey = `comment_${hitId}_${asin}_${workerId}`;
+    const savedComment = localStorage.getItem(commentKey);
+    if (savedComment) commentBox.value = savedComment;
+    commentBox.addEventListener('input', () => {
+      localStorage.setItem(commentKey, commentBox.value);
+    });
+    col.appendChild(commentBox);
+
+    const rowMatch = rows.find(r => r.WorkerId === workerId && parseFixedJSON(r['Answer.output_data'] || '{}')?.[asin]);
+    if (rowMatch && rowMatch.AssignmentId) {
+      const assignDisplay = document.createElement('div');
+      assignDisplay.classList.add('hidden');
+      assignDisplay.textContent = `AssignmentId: ${rowMatch.AssignmentId}`;
+      assignDisplay.style.fontSize = "10px";
+      assignDisplay.style.color = "#666";
+      assignDisplay.style.marginTop = "3px";
+      col.appendChild(assignDisplay);
+    }
+
+    asinBlock.appendChild(col);
+  }
+  //recolorTitles(hitContainer);
+  hitContainer.appendChild(asinBlock);
+});
+
+  //ato ambony ato
+ // REMPLISSAGE DES INFORMATIONS NECESSAIRES
+// === Mise à jour des informations dans #informations ===
+const infoDiv = document.getElementById("informations");
+if (infoDiv) {
+  const row = rows[0];
+  const type = window.detectedType || 'Inconnu';
+  const batch = row['Title'] || 'Non spécifié';/// AVERENO Source.name raha TSY FICHIER COMPILE TSV no atao
+  const hitId = row['HITId'] || '';
+  const queryURL = row['Input.imageURL'] || '';
+  const textContent = row['Input.content'] || '---';
+  const text = row['Input.text'] || '';
+  const textURL = row['Input.textURL'] || '';
+  const rawTextURL = row['Input.textURL']; // peut être undefined, null ou "null"
+  const hasTextURL = rawTextURL !== undefined && rawTextURL !== null && String(rawTextURL).trim().toLowerCase() !== 'null';
+  const queryASIN = row['Input.queryProductASIN']; // 🆕 Vérifie si la colonne existe
+  //console.log(queryASIN);
+
+  let html = `
+    <b>Type :</b> ${type}<br>
+    <b>Batch :</b> ${batch}<br>
+    <b>HITId :</b> ${hitId}<br>
+    <b>Query URL :</b> <a href="${queryURL}" target="_blank">${queryURL}</a><br>
+  `;
+
+// 🆕 Affichage ASIN QUERY avec gestion du cas "null" en texte
+const rawQueryASIN = row['Input.queryProductASIN']; // peut être undefined ou "null"
+const hasASIN = rawQueryASIN !== undefined && rawQueryASIN !== null && String(rawQueryASIN).trim().toLowerCase() !== 'null';
+
+if (hasASIN) {
+  const queryASIN = String(rawQueryASIN).trim();
+  const marketplace = String(row['Input.marketplace'] || 'US').toUpperCase();
+  const domains = {
+    IN: 'www.amazon.in', FR: 'www.amazon.fr', UK: 'www.amazon.co.uk',
+    DE: 'www.amazon.de', IT: 'www.amazon.it', US: 'www.amazon.com'
+  };
+  const domain = domains[marketplace] || 'www.amazon.com';
+  const asinHref = `https://${domain}/dp/${encodeURIComponent(queryASIN)}`;
+
+  html += `<b>ASIN QUERY :</b> <a href="${asinHref}" target="_blank" rel="noopener noreferrer">${queryASIN}</a><br>`;
+
+  const query_title = row['Input.queryProductTitle'];
+  if (query_title) {
+    html += `<div style=font-weight:bold;">${query_title}</div>`;
+  }
+} else {
+  html += `<b>ASIN QUERY :</b> Batch non-LMT<br>`;
+}
+
+  if (text) html += `<b>Text :</b> ${text}<br>`;
+
+  if (textURL) {
+    // tu peux réactiver ici si nécessaire
+    // html += `<b>Text URL :</b> <a href="${textURL}" target="_blank">${textURL}</a><br>`;
+  }
+
+  html += `<b>Input content :</b> ${textContent}<br>`;
+  //infoDiv.innerHTML = html;
+  const contentDiv = document.getElementById('infoContent');
+	contentDiv.innerHTML = html;
+	infoDiv.style.display = 'block';
+  infoDiv.style.display = 'block';
+
+// 🆕 Chargement du contenu textURL si présent et valide
+if (hasTextURL) {
+  const textURL = String(rawTextURL).trim();
+
+  // 🔹 Supprime l'ancien <pre> s'il existe déjà dans infoDiv
+  const oldPre = infoDiv.querySelector('pre');
+  if (oldPre) oldPre.remove();
+
+  fetch(textURL)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+      return response.text();
+    })
+    .then(data => {
+      const pre = document.createElement('pre');
+      pre.textContent = data.slice(0, 1000);
+      pre.style.maxHeight = '300px';
+      pre.style.overflowY = 'auto';
+      pre.style.background = '#f4f4f4';
+      pre.style.border = '1px solid #ccc';
+      pre.style.padding = '6px';
+      pre.style.marginTop = '8px';
+      pre.style.fontSize = '25px';
+      pre.style.fontWeight = 'bold';
+      infoDiv.appendChild(pre);
+    })
+    .catch(err => {
+      // console.warn("❌ Erreur lors du chargement du textURL :", err);
+    });
+}
+}
+recolorTitles(hitContainer);
+scrollPageToTop(); // ici on scrolle vers le haut
+}
+
+
+
+
+//ETO ZANY NO AMPIDIRINA LE COLORISATION VAOVAO
+//TAPITRA HATREO NY SHOW HIT id
+    function findImage(row, asin) {
+      try {
+        const matches = parseFixedJSON(row['Input.matches'] || '[]');
+        const match = matches.find(m => m.asin === asin);
+        return match?.image_url && match.image_url !== 'Product not found' ? match.image_url : null;
+      } catch { return null; }
+    }
+
+    function groupByWorkerId(rows, asin) {
+	  const grouped = {};
+
+	  rows.forEach(row => {
+		const workerId = row.WorkerId;
+		const outputData = parseFixedJSON(row['Answer.output_data'] || '{}');
+
+		if (!outputData[asin]) return;
+
+		const asinData = outputData[asin];
+		const values = [];
+
+		Object.entries(asinData).forEach(([key, val]) => {
+		  if (val === true) {
+			values.push(key);
+		  } else if (key === "relevance_label" && typeof val === 'string') {
+			values.push(`relevance_label: ${val}`);
+		  }
+		});
+
+		grouped[workerId] = values;
+	  });
+
+  return grouped;
+}
+
+let loadedImage = null;
+let currentAngle = 0;
+let targetAngle = 0;
+let currentScale = 1;
+let isAnimating = false;
+
+function showASINImage(src) {
+  const canvas = document.getElementById("floatingASINCanvas");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+
+  img.onload = function () {
+    loadedImage = img;
+    currentAngle = 0;
+    targetAngle = 0;
+    currentScale = 1;
+    resizeCanvasForRotation(canvas, img, currentAngle, currentScale);
+    drawImage(ctx, loadedImage, currentAngle, currentScale);
+  };
+
+  img.src = src;
+  canvas.style.display = "block";
+
+  makeDraggableAndZoomable(canvas, true);
+
+  // ======== Zoom via molette avec pas identique à QUERY (0.05 fixe) ========
+  if (!canvas.dataset.listenerAttached) {
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+
+      const step = 0.05; // 5% par cran
+		// Zoom in/out
+      currentScale += e.deltaY < 0 ? step : -step;
+      currentScale = Math.min(Math.max(currentScale, 0.2), 2); // Clamp 50%-300%
+
+      // Redessine l'image
+      const ctx = canvas.getContext("2d");
+      resizeCanvasForRotation(canvas, loadedImage, currentAngle, currentScale);
+      drawImage(ctx, loadedImage, currentAngle, currentScale);
+
+      console.log(`ASIN: ${Math.round(currentScale * 100)}%`);
+    });
+
+    canvas.dataset.listenerAttached = "true";
+  }
+
+  // Double clic pour rotation
+  canvas.ondblclick = () => {
+    targetAngle += 90;
+    if (!isAnimating) animateRotation(canvas.getContext("2d"));
+  };
+}
+
+
+
+
+function resizeCanvasForRotation(canvas, img, angle, scale) {
+  const rad = angle * Math.PI / 180;
+  const absCos = Math.abs(Math.cos(rad));
+  const absSin = Math.abs(Math.sin(rad));
+
+  const boundingWidth = (img.width * absCos + img.height * absSin) * scale;
+  const boundingHeight = (img.width * absSin + img.height * absCos) * scale;
+
+  canvas.width = boundingWidth;
+  canvas.height = boundingHeight;
+
+  return { width: boundingWidth, height: boundingHeight };
+}
+
+function drawImage(ctx, img, angle, scale) {
+  resizeCanvasForRotation(ctx.canvas, img, angle, scale);
+  
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.save();
+  ctx.translate(ctx.canvas.width / 2, ctx.canvas.height / 2);
+  ctx.rotate(angle * Math.PI / 180);
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, -img.width / 2, -img.height / 2);
+  ctx.restore();
+}
+
+function animateRotation(ctx) {
+  isAnimating = true;
+  const step = () => {
+    const diff = targetAngle - currentAngle;
+    if (Math.abs(diff) < 0.5) {
+      currentAngle = targetAngle;
+      drawImage(ctx, loadedImage, currentAngle, currentScale);
+      isAnimating = false;
+      return;
+    }
+    currentAngle += diff * 0.1; // interpolation douce
+    drawImage(ctx, loadedImage, currentAngle, currentScale);
+    requestAnimationFrame(step);
+  };
+  step();
+}
+
+function makeDraggableAndZoomable(canvas, escapable) {
+  let isDragging = false, startX, startY;
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true;
+    startX = e.clientX - canvas.offsetLeft;
+    startY = e.clientY - canvas.offsetTop;
+    canvas.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    canvas.style.left = `${e.clientX - startX}px`;
+    canvas.style.top = `${e.clientY - startY}px`;
+  });
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+    canvas.style.cursor = 'move';
+  });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    currentScale *= e.deltaY < 0 ? 1.1 : 0.9;
+    redrawCanvas(canvas, currentAngle, currentScale);
+  });
+  if (escapable) {
+    document.addEventListener('keydown', e => {
+      if (e.key === "Escape") canvas.style.display = "none";
+      if (e.key === "ArrowLeft") { currentAngle -= 5; redrawCanvas(canvas, currentAngle, currentScale); }
+      if (e.key === "ArrowRight") { currentAngle += 5; redrawCanvas(canvas, currentAngle, currentScale); }
+    });
+  }
+}
+
+function redrawCanvas(canvas, angle, scale) {
+  if (!loadedImage) return; // pas d'image chargée => rien faire
+  const ctx = canvas.getContext("2d");
+  drawImage(ctx, loadedImage, angle, scale);
+}
+	
+	
+	
+	
+	/**
+ * Corrige une chaîne JSON en entourant les clés numériques longues par des guillemets.
+ * Exemple : {1077129068: {...}} => {"1077129068": {...}}
+ * @param {string} jsonString - Chaîne JSON potentiellement mal formée.
+ * @returns {object|null} - Objet JSON corrigé, ou null si erreur.
+ */
+function parseFixedJSON(jsonString) {
+  try {
+    // Remplace les clés numériques non-quotées par des clés entre guillemets
+    const fixed = jsonString.replace(/([{,])(\d{7,})(?=\s*:)/g, '$1"$2"');
+    return JSON.parse(fixed);
+  } catch (e) {
+    console.warn("Erreur lors du parsing JSON corrigé :", e);
+    return null;
+  }
+}
+
+//// teto le nesorina
+
+//ROTATION ET DEPLACEMENT IMAGE ASIN
+function enableImageRotation(imgId) {
+  const img = document.getElementById(imgId);
+  if (!img) return;
+
+  img.dataset.rotation = img.dataset.rotation || "0";
+
+  img.addEventListener('dblclick', () => {
+    const current = parseFloat(img.dataset.rotation) || 0;
+    img.dataset.rotation = current + 90;
+
+    img.style.transition = 'transform 0.3s ease';
+    applyTransform(img);
+
+    setTimeout(() => img.style.transition = '', 300);
+  });
+}
+
+//FONCTION DRESSAGE TABLEAU RESULTAT
+document.getElementById('btnSaveData').addEventListener('click', async () => {
+  const asinBlocks = document.querySelectorAll('.asin-block');
+  const tableau = document.getElementById('tableaudetailsasin');
+  const tbody = tableau.querySelector('tbody');
+  tbody.innerHTML = '';
+
+  if (!currentHitRow) {
+    alert("❗ Erreur : aucune donnée HIT disponible.");
+    return;
+  }
+
+  let erreurs = [];
+  const assignments = {};
+
+  asinBlocks.forEach(asinBlock => {
+    const asinKey = asinBlock.querySelector('.asin-info span')?.textContent.trim().replace("ASIN:", "").trim() || '[ASIN inconnu]';
+	//const asinKey = asinBlock.getAttribute('data-asin') || '[ASIN inconnu]';
+	if (!asinKey || asinKey === '[ASIN inconnu]') {
+  console.warn("⚠️ ASIN manquant dans le bloc :", asinBlock);
+}
+	
+
+    // ✅ Récupérer les valeurs cochées (checkboxes) et relevance_label
+	const jugeColumn = asinBlock.querySelector('.worker-column.judge');
+	let jugeCheckedValues = [];
+
+	if (jugeColumn) {
+	  const jugeCheckboxes = jugeColumn.querySelectorAll('input.juge-checkbox:checked');
+	  jugeCheckedValues = Array.from(jugeCheckboxes).map(cb => cb.value);
+
+	  // 🛠 Sélecteur dynamique pour relevance_label
+	  const relevanceSelect = jugeColumn.querySelector(`select[name="${asinKey}_relevance_label"]`);
+	  if (relevanceSelect && relevanceSelect.value && relevanceSelect.value !== 'none') {
+		jugeCheckedValues.push(relevanceSelect.value);
+	  }
+	} else {
+	  console.warn(`⚠️ Colonne .worker-column.judge introuvable pour ASIN ${asinKey}`);
+	}
+
+	// ✅ Debug
+	//console.log(`🔍 ASIN: ${asinKey}`);
+	//console.log(`📌 Jugement du juge:`, jugeCheckedValues);
+
+    if (jugeCheckedValues.length === 0) {
+      erreurs.push(`${asinKey} (aucun verdict coché)`);
+      return;
+    }
+
+    const workerCols = asinBlock.querySelectorAll('.worker-column:not(.judge)');
+
+    workerCols.forEach(col => {
+      const workerId = col.querySelector('b')?.textContent.trim() || '[workerId inconnu]';
+
+      const assignmentDiv = Array.from(col.querySelectorAll('div')).find(d => d.textContent.includes('AssignmentId:'));
+      const assignmentId = assignmentDiv ? assignmentDiv.textContent.replace('AssignmentId:', '').trim() : '';
+
+      const commentText = col.querySelector('textarea')?.value.trim() || '';
+
+      if (!workerId || !assignmentId) {
+        erreurs.push(`${asinKey} / ${workerId} (manque workerId ou assignmentId)`);
+        return;
+      }
+
+      if (!assignments[assignmentId]) assignments[assignmentId] = [];
+
+      const assinJson = Array.from(col.querySelectorAll('.majority, .minority'))
+        .map(d => d.textContent.trim())
+        .filter(Boolean)
+        .join(', ');
+
+      assignments[assignmentId].push({
+        asinKey,
+        assignmentId,
+        workerId,
+        jugeCheckedValues,
+        commentText,
+        assinJson,
+        block: asinBlock
+      });
+    });
+  });
+
+  if (erreurs.length > 0) {
+    alert("⚠️ Il y a " + erreurs.length + " erreur(s) :\n\n" + erreurs.join('\n'));
+    return;
+  }
+
+  for (const [assignmentId, items] of Object.entries(assignments)) {
+    items.forEach(item => {
+      const {
+        asinKey,
+        assignmentId,
+        workerId,
+        jugeCheckedValues,
+        commentText,
+        assinJson,
+        block
+      } = item;
+
+      const hitId = currentHitRow['HITId'] || 'inconnu';
+      const inputImageURL = currentHitRow['Input.imageURL'] || '';
+      const inputBBox = currentHitRow['Input.bbox'] || '';
+      const inputContent = currentHitRow['Input.content'] || '';
+      const answerOutput = currentHitRow['Answer.output_data'] || '';
+      const inputMatches = currentHitRow['Input.matches'] || '{}';
+      const marketplace = currentHitRow['Input.marketplace'] || '';
+
+      let amazonImage = '';
+try {
+  const matchArray = JSON.parse(inputMatches);
+  const asinMatch = matchArray.find(m => m.asin === asinKey);
+
+  // 🔍 Ajout des logs pour débogage
+  //console.log('🔍 asinMatch =', asinMatch);
+  if (asinMatch) {
+    //console.log('📸 asinMatch.image_url =', asinMatch.image_url);
+  } else {
+    //console.log('❌ Aucun asinMatch trouvé pour asinKey =', asinKey);
+  }
+
+  if (asinMatch && asinMatch.image_url) {
+    amazonImage = asinMatch.image_url;
+  }
+} catch (e) {
+  console.warn(`❌ Erreur parsing matches pour ASIN ${asinKey}`, e);
+  //alert("ato ve zany");
+}
+
+      const row = document.createElement('tr');
+      [
+        hitId,
+        assignmentId,
+        workerId,
+        inputImageURL,
+        inputBBox,
+        inputContent,
+        answerOutput,
+        amazonImage,
+        marketplace,
+        inputMatches,
+        asinKey,
+        assinJson,
+        jugeCheckedValues.join(','),
+        commentText
+      ].forEach(val => {
+        const td = document.createElement('td');
+        td.textContent = val;
+        row.appendChild(td);
+      });
+
+      tbody.appendChild(row);
+    });
+  }
+
+  tableau.style.display = 'none';
+  gotosheet(); // 🚀 Lance l'enregistrement
+});
+
+
+
+async function gotosheet() {
+  const sheetUrlInput = document.getElementById('sheetUrlInput');
+  const sheetUrl = sheetUrlInput.value.trim();
+
+  if (!sheetUrl.startsWith('https://docs.google.com/spreadsheets/')) {
+    alert('❌ Tsy valide ilay Sheet nomenao na tsisy onglet Details ASIN, sa ahoana hozy Enao?');
+    return;
+  }
+
+  if (!currentHitRow || !currentHitRow['HITId']) {
+    alert('❌ Misy tsy ampy ny données hadika, sa ahoana hozy enao?');
+    return;
+  }
+
+  const hitId = currentHitRow['HITId'];
+
+  const tableau = document.getElementById('tableaudetailsasin');
+  if (!tableau) {
+    alert('❌ Tsy hita mihintsy ilay tableau, sa ahoana hozy enao?');
+    return;
+  }
+
+  const rows = tableau.querySelectorAll('tbody tr');
+  if (rows.length === 0) {
+    alert('❌ Vide ilay tableau, sa ahoana hozy enao?');
+    return;
+  }
+
+  // Étape 1 – Vérification d'existence
+	const gasWebAppUrl = document.getElementById("automatisme").value.trim() || localStorage.getItem("gas_webapp_url");
+
+	if (!gasWebAppUrl || !gasWebAppUrl.startsWith("https://script.google.com/macros/")) {
+	  alert("❌ Tsy norma ilay URL automatisme nomena sa ahoana hozy Enao?.");
+	  throw new Error("Clé GAS invalide ou manquante");
+	}
+
+const checkUrl = `${gasWebAppUrl}?sheetUrl=${encodeURIComponent(sheetUrl)}&hitId=${encodeURIComponent(hitId)}`;
+
+  let overwrite = false;
+  let overwriteRange = null;
+
+  try {
+    const response = await fetch(checkUrl);
+    const result = await response.json();
+
+    if (result.status === "success" && result.found) {
+      const confirmation = confirm(`⚠️ HITId efa traité io ary ato  (${result.range}). Sa ahoana hozy Enao, Ecrasena ve sa Tsia ?`);
+      if (!confirmation) {
+        // Opération annulée par l’utilisateur
+        return;
+      }
+      overwrite = true;
+      overwriteRange = result.range;
+    }
+  } catch (err) {
+    alert('❌ Erreur lors de la vérification de doublon : ' + err.message);
+	//scrollPageToTop(); // ici on scrolle vers le haut
+    return;
+  }
+
+  // Étape 2 – Construction des données à envoyer (sans entête)
+  const dataToSend = [];
+  rows.forEach(tr => {
+    const rowData = [];
+    tr.querySelectorAll('td').forEach(td => {
+      rowData.push(td.textContent.trim());
+    });
+    dataToSend.push(rowData);
+  });
+
+  // Étape 3 – Envoi silencieux vers Apps Script
+  //const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby9ggWBwFGM8i0lFByZpaYBdoeEW3uSK1SLHr1zpUCZCfaqLnROmd3a0ac6BX3ffoMLaA/exec';
+  const GAS_WEB_APP_URL = localStorage.getItem("gas_webapp_url");
+
+  fetch(GAS_WEB_APP_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      sheetUrl,
+      hitId,
+      data: dataToSend,
+      range: overwrite ? overwriteRange : null
+    })
+  });
+
+  // Affichage du sablier avec progression modale
+  const overlay = document.getElementById('progressOverlay');
+  const progressText = document.getElementById('progressText');
+  overlay.style.display = 'flex';
+
+  // Progression simulée
+  const étapes = [1, 10, 20, 35, 45, 60, 75, 85, 95, 99];
+  for (let i = 0; i < étapes.length; i++) {
+    progressText.textContent = `Vérification en cours... ${étapes[i]}%`;
+    await new Promise(resolve => setTimeout(resolve, 200)); // Délai ajustable
+  }
+
+  // Étape 4 – Vérification finale après progression
+  try {
+    const check = await fetch(checkUrl);
+    const result = await check.json();
+
+    if (result.status === 'success' && result.found) {
+      progressText.innerHTML = '<span class="icon">✅</span> Details ASIN OK!.';
+    } else {
+      progressText.innerHTML = '<span class="icon">⚠️</span> Détails ASIN OK!';
+    }
+  } catch (err) {
+    progressText.innerHTML = '❌ Erreur lors de la vérification finale : ' + err.message;
+  }
+
+  // Attente pour afficher le message final, puis fermeture de l'overlay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  overlay.style.display = 'none';
+  //scrollPageToTop(); // ici on scrolle vers le haut
+
+}
+
+
+
+// CODE DE TEST POUR LA VERIFICATION EXISTANCE DANS DETAILS asin
+document.getElementById("verifierdata").addEventListener("click", async () => {
+  const hitId = document.getElementById("hitIdInput").value.trim();
+  const sheetUrl = document.getElementById("sheetUrlInput").value.trim(); // 🟢 correction ici
+
+  if (!sheetUrl.startsWith('https://docs.google.com/spreadsheets/')) {
+    return alert("❌ Na tsisy Details ASIN na tsy norma le Sheet picking sa ahoana hozy Enao?.");
+  }
+
+  if (!hitId) {
+    return alert("Fa aiza ze HitID sa ahoana hozy Enao?");
+  }
+
+  const gasWebAppUrl = document.getElementById("automatisme").value.trim() || localStorage.getItem("gas_webapp_url");
+	if (!gasWebAppUrl) {
+	  alert("❌ Ampidiro aloha le URL Script automatisme sa ahoana hozy Enao?.");
+	  throw new Error("GAS Web App URL manquant");
+	}
+
+const apiUrl = `${gasWebAppUrl}?sheetUrl=${encodeURIComponent(sheetUrl)}&hitId=${encodeURIComponent(hitId)}`;
+
+
+  try {
+    const response = await fetch(apiUrl);
+    const result = await response.json();
+
+    const msg = document.getElementById("verifMessage");
+    if (result.status === "success") {
+      msg.textContent = result.found
+        ? "✅ Oui, ce HitID est déjà traité"
+        : "❌ Non, ce HitID n'est pas encore traité";
+      msg.style.color = result.found ? "green" : "red";
+
+      // ✅ Facultatif : on peut déclencher automatiquement le chargement des résultats ici
+      if (result.found) {
+        //loadSheetResults(hitId);
+      }
+
+    } else {
+      msg.textContent = "⚠️ Erreur: " + result.message;
+      msg.style.color = "orange";
+    }
+  } catch (err) {
+    console.error("Erreur de requête :", err);
+    document.getElementById("verifMessage").textContent = "⚠️ Erreur réseau ou script.";
+  }
+});
+
+
+
+
+
+window.addEventListener('DOMContentLoaded', () => {
+  // Masquer le sablier
+  const overlay = document.getElementById('progressOverlay');
+  if (overlay) overlay.style.display = 'none';
+
+  // 🔹 Gérer l'input #automatisme (clé : gas_webapp_url)
+  const input = document.getElementById("automatisme");
+  const savedUrl = localStorage.getItem("gas_webapp_url");
+  if (savedUrl) input.value = savedUrl;
+
+  input.addEventListener("input", () => {
+    const url = input.value.trim();
+    localStorage.setItem("gas_webapp_url", url);
+  });
+
+  // 🔹 Gérer l'input #sheetUrlInput (clé : last_URL_Sheet_DA)
+  const sheetUrlInput = document.getElementById("sheetUrlInput");
+  const savedSheetUrl = localStorage.getItem("last_URL_Sheet_DA");
+  if (savedSheetUrl) sheetUrlInput.value = savedSheetUrl;
+
+  sheetUrlInput.addEventListener("input", () => {
+    localStorage.setItem("last_URL_Sheet_DA", sheetUrlInput.value.trim());
+  });
+});
+
+  
+  
+ //CHARGEMENT DE URL DE DEPLOYEMENT POUR CHAQUE utilisateur
+ window.onload = () => {
+  const savedUrl = localStorage.getItem("gas_webapp_url");
+  if (savedUrl) {
+    document.getElementById("automatisme").value = savedUrl;
+  }
+
+  document.getElementById("automatisme").addEventListener("change", () => {
+    const url = document.getElementById("automatisme").value.trim();
+    localStorage.setItem("gas_webapp_url", url);
+  });
+};
+
+
+function showNotification(message) {
+  const notif = document.getElementById('notification');
+  notif.textContent = message;
+  notif.classList.add('show');
+  setTimeout(() => {
+    notif.classList.remove('show');
+  }, 3000);  // disparition après 3000 ms = 3 secondes
+}
+
+document.getElementById("btnSaveData1").addEventListener("click", () => {
+  document.getElementById("btnSaveData").click();
+});
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const controls = document.getElementById("controls");
+  const toggleBtn = document.getElementById("toggleControlsBtn");
+
+  toggleBtn.addEventListener("click", () => {
+    controls.classList.toggle("hidden");
+    toggleBtn.textContent = controls.classList.contains("hidden") ? "▼" : "▲";
+  });
+});
+
+
+
+document.getElementById("hitIdInput").addEventListener("keydown", function (event) {
+  if (event.key === "Enter") {
+    const hitId = this.value.trim();
+    if (hitId) {
+      showHIT(hitId);
+    }
+  }
+});
+
+
+
+//ELEMENT INTERACT JS
+interact('#floatingQueryWrapper')
+  .draggable({
+    listeners: {
+      start(event) {
+        event.target.classList.add('dragging');
+      },
+      move(event) {
+        const target = event.target;
+
+        // Lire les valeurs existantes ou mettre par défaut
+        const x = (parseFloat(target.dataset.x) || 0) + event.dx;
+        const y = (parseFloat(target.dataset.y) || 0) + event.dy;
+        const scale = parseFloat(target.dataset.scale) || 1;
+        const rotation = parseFloat(target.dataset.rotation) || 0;
+
+        // Sauvegarder les nouvelles coordonnées
+        target.dataset.x = x;
+        target.dataset.y = y;
+
+        // Appliquer les 3 transformations sans perte
+        target.style.transform = `translate(${x}px, ${y}px) scale(${scale}) rotate(${rotation}deg)`;
+      },
+      end(event) {
+        event.target.classList.remove('dragging');
+      }
+    }
+  })
+  .gesturable({
+    listeners: {
+      move (event) {
+        const target = event.target;
+
+        const currentRotation = parseFloat(target.dataset.rotation) || 0;
+        const newRotation = currentRotation + event.da;
+
+        const currentScale = parseFloat(target.dataset.scale) || 1;
+        const newScale = Math.min(Math.max(currentScale * (1 + event.ds), 0.5), 3);
+
+        const x = parseFloat(target.getAttribute('data-x')) || 0;
+        const y = parseFloat(target.getAttribute('data-y')) || 0;
+
+        target.style.transform = `translate(${x}px, ${y}px) rotate(${newRotation}deg) scale(${newScale})`;
+
+        target.dataset.rotation = newRotation;
+        target.dataset.scale = newScale;
+      }
+    }
+  });
+  
+  function applyTransform(el) {
+  const x = parseFloat(el.dataset.x) || 0;
+  const y = parseFloat(el.dataset.y) || 0;
+  const scale = parseFloat(el.dataset.scale) || 1;
+  const rotation = parseFloat(el.dataset.rotation) || 0;
+
+  el.style.transform = `translate(${x}px, ${y}px) scale(${scale}) rotate(${rotation}deg)`;
+}
+
+// Initialiser les datas sur le wrapper
+function initializeWrapper(wrapperId) {
+  const wrapper = document.getElementById(wrapperId);
+  if (!wrapper) return;
+
+  wrapper.dataset.x = "0";
+  wrapper.dataset.y = "0";
+  wrapper.dataset.scale = "1";
+  wrapper.dataset.rotation = "0";
+  applyTransform(wrapper);
+}
+
+
+
+// Rotation image seule (ASIN par exemple)
+function enableImageRotation(imgId) {
+  const img = document.getElementById(imgId);
+  if (!img) return;
+
+  img.dataset.rotation = "0";
+
+  img.addEventListener('dblclick', () => {
+    const current = parseFloat(img.dataset.rotation) || 0;
+    img.dataset.rotation = current + 90;
+
+    img.style.transition = 'transform 0.3s ease';
+    img.style.transform = `rotate(${img.dataset.rotation}deg)`;
+    img.style.transformOrigin = 'center center';
+
+    setTimeout(() => {
+      img.style.transition = '';
+    }, 300);
+  });
+}
+
+// Activer interact.js
+function enableInteractOnWrapper(wrapperId) {
+  const wrapper = document.getElementById(wrapperId);
+  if (!wrapper) return;
+
+  interact(wrapper)
+    .draggable({
+      listeners: {
+        move(event) {
+          const target = event.target;
+          const dx = event.dx;
+          const dy = event.dy;
+
+          const x = (parseFloat(target.dataset.x) || 0) + dx;
+          const y = (parseFloat(target.dataset.y) || 0) + dy;
+
+          target.dataset.x = x;
+          target.dataset.y = y;
+
+          applyTransform(target);
+        }
+      }
+    })
+    .gesturable({
+      listeners: {
+        move(event) {
+          const target = event.target;
+
+  let x = (parseFloat(target.dataset.x) || 0) + event.dx;
+  let y = (parseFloat(target.dataset.y) || 0) + event.dy;
+
+  target.dataset.x = x;
+  target.dataset.y = y;
+
+  target.style.transform = `translate(${x}px, ${y}px)`;
+        }
+      }
+    });
+}
+
+// === APPELS INIT ===
+initializeWrapper('floatingQueryWrapper');
+//enableRotationOnWrapper('floatingQueryWrapper');
+enableImageRotation('floatingASINImage');
+enableInteractOnWrapper('floatingQueryWrapper');
+
+
+//AFFICHER MASQUER INPUT SUR LE top
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape') {
+    const controls = document.getElementById('controls');
+    const isHidden = window.getComputedStyle(controls).display === 'none';
+    controls.style.display = isHidden ? 'block' : 'none';
+  }
+});
+
+
+// Liste des mots à exclure (en minuscules)
+const excludedWords = new Set([
+  "for", "pour", "with", "size", "taille", "color",
+  "1","2","3","4","5","6","7","8","9","0",
+  "a","b","c","d","e","f","g","h","i","j",
+  "k","l","m","n","o","p","q","r","s","t",
+  "u","v","w","x","y","z","the","pour"
+]);
+
+function escapeRegex(s){
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function recolorTitles(container) {
+  if (!container) return;
+
+  // Récupère les div de titre (ordre important)
+  const titleDivs = container.querySelectorAll('.asin-info > div');
+  if (!titleDivs || titleDivs.length === 0) return;
+
+  // Construire allTitles depuis DOM (plus robuste que dépendre d'une variable globale)
+  const allTitles = Array.from(titleDivs).map(div => (div.textContent || '').trim());
+
+  // Tokenize titles (unicode-friendly) et filtrage
+  const tokenizedTitles = allTitles.map(title => {
+    // utilise des classes Unicode pour lettres/chiffres
+    const words = title.toLowerCase().match(/[\p{L}\p{N}\.]+/gu) || [];
+    const filtered = words.filter(w => !excludedWords.has(w));
+    return Array.from(new Set(filtered));
+  });
+
+  // Compte la fréquence des mots
+  const wordCounts = {};
+  tokenizedTitles.forEach(words => {
+    words.forEach(word => {
+      wordCounts[word] = (wordCounts[word] || 0) + 1;
+    });
+  });
+
+  const minFreq = Math.ceil(allTitles.length / 2);
+
+  const majorWordsWithCount = Object.entries(wordCounts)
+    .filter(([word, count]) => count >= minFreq)
+    .sort((a,b) => b[1] - a[1]);
+
+  // retire l'ancienne marque .no-major pour tous les blocks (nettoyage)
+  container.querySelectorAll('.asin-block.no-major').forEach(b => b.classList.remove('no-major'));
+
+  if (majorWordsWithCount.length === 0) {
+    // Aucun mot majoritaire : on peut décider de marquer tous les blocks
+    container.querySelectorAll('.asin-block').forEach(block => block.classList.add('no-major'));
+    // et on arrête
+    return;
+  }
+
+  const majorWords = majorWordsWithCount.map(([w]) => w);
+
+  // fonction interne pour surligner les mots majoritaires
+  function highlightCommonWords(title, commonWords) {
+    if (!commonWords || commonWords.length === 0) return title;
+    const escaped = commonWords.map(w => escapeRegex(w));
+    const regex = new RegExp(`\\b(${escaped.join('|')})\\b`, 'giu');
+    return title.replace(regex, match => `<span class="highlight-major">${match}</span>`);
+  }
+
+  // Appliquer le surlignage et la coloration des asin-block sans majoritaire
+  titleDivs.forEach((div, i) => {
+  const originalTitle = allTitles[i] || '';
+  div.innerHTML = highlightCommonWords(originalTitle, majorWords);
+
+  const hasMajor = majorWords.some(word => {
+    return new RegExp(`\\b${escapeRegex(word)}\\b`, 'iu').test(originalTitle);
+  });
+
+  const asinBlock = div.closest('.asin-block');
+  if (asinBlock) {
+    if (!hasMajor) {
+      asinBlock.classList.add('no-major');
+      asinBlock.classList.remove('major');
+    } else {
+      asinBlock.classList.add('major');
+      asinBlock.classList.remove('no-major');
+    }
+  }
+});
+}
+
+
+
+
+//ENREGISTREMENT TSOTRA
+//FONCTION DRESSAGE TABLEAU RESULTAT
+document.getElementById('done').addEventListener('click', async () => {
+  const asinBlocks = document.querySelectorAll('.asin-block');
+  const tableau = document.getElementById('tableaudetailsasin');
+  const tbody = tableau.querySelector('tbody');
+  tbody.innerHTML = '';
+
+  if (!currentHitRow) {
+    alert("❗ Erreur : aucune donnée HIT disponible.");
+    return;
+  }
+
+  let erreurs = [];
+  const assignments = {};
+
+  asinBlocks.forEach(asinBlock => {
+    const asinKey = asinBlock.querySelector('.asin-info span')?.textContent.trim().replace("ASIN:", "").trim() || '[ASIN inconnu]';
+    if (!asinKey || asinKey === '[ASIN inconnu]') {
+      console.warn("⚠️ ASIN manquant dans le bloc :", asinBlock);
+    }
+
+    // ✅ Récupérer les valeurs cochées (checkboxes) et relevance_label
+    const jugeColumn = asinBlock.querySelector('.worker-column.judge');
+    let jugeCheckedValues = [];
+
+    if (jugeColumn) {
+      const jugeCheckboxes = jugeColumn.querySelectorAll('input.juge-checkbox:checked');
+      jugeCheckedValues = Array.from(jugeCheckboxes).map(cb => cb.value);
+
+      // 🛠 Sélecteur dynamique pour relevance_label
+      const relevanceSelect = jugeColumn.querySelector(`select[name="${asinKey}_relevance_label"]`);
+      if (relevanceSelect && relevanceSelect.value && relevanceSelect.value !== 'none') {
+        jugeCheckedValues.push(relevanceSelect.value);
+      }
+    } else {
+      console.warn(`⚠️ Colonne .worker-column.judge introuvable pour ASIN ${asinKey}`);
+    }
+
+    if (jugeCheckedValues.length === 0) {
+      erreurs.push(`${asinKey} (aucun verdict coché)`);
+      return;
+    }
+
+    const workerCols = asinBlock.querySelectorAll('.worker-column:not(.judge)');
+
+    workerCols.forEach(col => {
+      const workerId = col.querySelector('b')?.textContent.trim() || '[workerId inconnu]';
+
+      const assignmentDiv = Array.from(col.querySelectorAll('div')).find(d => d.textContent.includes('AssignmentId:'));
+      const assignmentId = assignmentDiv ? assignmentDiv.textContent.replace('AssignmentId:', '').trim() : '';
+
+      const commentText = col.querySelector('textarea')?.value.trim() || '';
+
+      if (!workerId || !assignmentId) {
+        erreurs.push(`${asinKey} / ${workerId} (manque workerId ou assignmentId)`);
+        return;
+      }
+
+      if (!assignments[assignmentId]) assignments[assignmentId] = [];
+
+      const assinJson = Array.from(col.querySelectorAll('.majority, .minority'))
+        .map(d => d.textContent.trim())
+        .filter(Boolean)
+        .join(', ');
+
+      assignments[assignmentId].push({
+        asinKey,
+        assignmentId,
+        workerId,
+        jugeCheckedValues,
+        commentText,
+        assinJson,
+        block: asinBlock
+      });
+    });
+  });
+
+  if (erreurs.length > 0) {
+    alert("⚠️ Il y a " + erreurs.length + " erreur(s) :\n\n" + erreurs.join('\n'));
+    return;
+  }
+
+  for (const [assignmentId, items] of Object.entries(assignments)) {
+    items.forEach(item => {
+      const {
+        asinKey,
+        assignmentId,
+        workerId,
+        jugeCheckedValues,
+        commentText,
+        assinJson,
+        block
+      } = item;
+
+      const hitId = currentHitRow['HITId'] || 'inconnu';
+      const inputImageURL = currentHitRow['Input.imageURL'] || '';
+      const inputBBox = currentHitRow['Input.bbox'] || '';
+      const inputContent = currentHitRow['Input.content'] || '';
+      const answerOutput = currentHitRow['Answer.output_data'] || '';
+      const inputMatches = currentHitRow['Input.matches'] || '{}';
+      const marketplace = currentHitRow['Input.marketplace'] || '';
+
+      let amazonImage = '';
+      try {
+        const matchArray = JSON.parse(inputMatches);
+        const asinMatch = matchArray.find(m => m.asin === asinKey);
+
+        if (asinMatch && asinMatch.image_url) {
+          amazonImage = asinMatch.image_url;
+        }
+      } catch (e) {
+        console.warn(`❌ Erreur parsing matches pour ASIN ${asinKey}`, e);
+      }
+
+      const row = document.createElement('tr');
+      [
+        hitId,
+        assignmentId,
+        workerId,
+        inputImageURL,
+        inputBBox,
+        inputContent,
+        answerOutput,
+        amazonImage,
+        marketplace,
+        inputMatches,
+        asinKey,
+        assinJson,
+        jugeCheckedValues.join(','),
+        commentText
+      ].forEach(val => {
+        const td = document.createElement('td');
+        td.textContent = val;
+        row.appendChild(td);
+      });
+
+      tbody.appendChild(row);
+    });
+  }
+
+  tableau.style.display = 'none';
+  //APPEL UTILITIES
+  processuniquefromtable();
+
+  // Construire le texte TSV uniquement avec les lignes du tbody (sans les en-têtes)
+  const rows = tbody.querySelectorAll('tr');
+  const tsvLines = [];
+
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    const values = Array.from(cells).map(td => 
+      td.textContent.replace(/\t/g, ' ').replace(/\n/g, ' ').trim()
+    );
+    tsvLines.push(values.join('\t'));
+  });
+
+  const tsvText = tsvLines.join('\n');
+
+  try {
+    await navigator.clipboard.writeText(tsvText);
+    showNotification('✅ Jugement terminé, résultats copiés dans le presse-papiers.');
+    //scrollPageToTop();
+  } catch (err) {
+    alert('❌ Échec de la copie automatique. Veuillez copier manuellement.\n' + err);
+  }
+});
+
+
+
+//SIMULATION BOUTON TERMINE SIMPLE (DU BAS)
+document.getElementById('btnSaveData2').addEventListener('click', () => {
+  document.getElementById('done').click();
+});
+
+//SCROOL VERS LE top
+function scrollPageToTop() {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth' // effet de défilement fluide
+  });
+}
+
+//DEPLACEMENT DU ZONE INFORMATION QUERY²
+const info = document.getElementById('informations');
+const dragHeader = document.getElementById('dragHeader');
+
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let elemStartLeft = 0;
+let elemStartTop = 0;
+
+dragHeader.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  const rect = info.getBoundingClientRect();
+  elemStartLeft = rect.left;
+  elemStartTop = rect.top;
+  dragHeader.style.cursor = 'grabbing';
+  e.preventDefault(); // empêche la sélection de texte
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const deltaX = e.clientX - dragStartX;
+  const deltaY = e.clientY - dragStartY;
+  info.style.left = (elemStartLeft + deltaX) + 'px';
+  info.style.top = (elemStartTop + deltaY) + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (isDragging) {
+    isDragging = false;
+    dragHeader.style.cursor = 'grab';
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const info = document.getElementById('informations');
+  const dragHeader = document.getElementById('dragHeader');
+
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let elemStartLeft = 0;
+  let elemStartTop = 0;
+
+  dragHeader.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    const rect = info.getBoundingClientRect();
+    elemStartLeft = rect.left;
+    elemStartTop = rect.top;
+    dragHeader.style.cursor = 'grabbing';
+    e.preventDefault(); // Empêche la sélection du texte pendant le drag
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
+    info.style.left = (elemStartLeft + deltaX) + 'px';
+    info.style.top = (elemStartTop + deltaY) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      dragHeader.style.cursor = 'grab';
+    }
+  });
+});
+
+function processuniquefromtable() {
+    const sourceTable = document.getElementById('tableaudetailsasin');
+    if (!sourceTable) {
+        alert('Le tableau "tableaudetailsasin" est introuvable.');
+        return;
+    }
+
+    const brute_table = document.getElementById('brute_table');
+    if (!brute_table) {
+        alert('Le tableau "brute_table" est introuvable.');
+        return;
+    }
+
+    // Récupérer les headers (en minuscules, trim)
+    const headers = Array.from(sourceTable.querySelectorAll('thead th')).map(th => th.textContent.trim().toLowerCase());
+
+    // Vérifier que les headers nécessaires sont présents
+    const necessaryHeaders = ['hitid', 'assignmentid', 'workerid', 'key', 'assin_json', 'assin_juge_json'];
+    const headersPresent = necessaryHeaders.every(h => headers.includes(h));
+    if (!headersPresent) {
+        alert('Les entêtes nécessaires ne sont pas toutes présentes dans le tableau.');
+        console.error('Headers trouvés:', headers);
+        console.error('Entêtes attendues:', necessaryHeaders);
+        return;
+    }
+
+    // Extraire les données du tableau en tableau d'objets
+    const tbodyRows = sourceTable.querySelectorAll('tbody tr');
+    const parsedData = [];
+
+    tbodyRows.forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        if (cells.length !== headers.length) return; // Ignore lignes incorrectes
+        const rowObj = {};
+        headers.forEach((header, i) => {
+            rowObj[header] = cells[i].textContent.trim();
+        });
+        parsedData.push(rowObj);
+    });
+
+    window.annotatedResultData = parsedData;
+
+    // Détection hasFourniture et hasRelevanceLabel (adaptable)
+const explicitAttributes = [
+    "asin_image_not_load",
+    "color",
+    "extra_features",
+    "has_product_difference",
+    "is_wrong_bundle",
+    "is_wrong_characteristic",
+    "is_wrong_packaging_overlay",
+    "is_wrong_size_or_count",
+    "location",
+    "material",
+    "no_difference",
+    "pattern",
+    "relevance_label",
+    "shape",
+    "size",
+    "support_type",
+    "wrong_age_group",
+    "wrong_category",
+	"exact_match",
+	"cannot_judge",
+	"possible_substitute",
+	"irrelevant"
+];
+
+// Pour forcer un type fixe (par exemple "CS") sans détection, on peut faire :
+const detectedType = "CS";  
+const backgroundColor = '#e6f7ff';
+
+window.detectedType = detectedType;
+
+
+    const sortedUniqueKeys = explicitAttributes.sort((a, b) => a.localeCompare(b));
+
+    // Recréation du tableau brute_table (caption + thead + tbody)
+    brute_table.innerHTML = '';
+
+    const caption = brute_table.createCaption();
+    caption.textContent = 'ANALYSE GLOBAL DES RESULTATS VENANT DE LOOKERS STUDIO';
+
+    // Construction des en-têtes
+    const displayHeaders = necessaryHeaders.concat(['smarter', 'juge']);
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+
+    displayHeaders.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+    });
+
+    sortedUniqueKeys.forEach(key => {
+        const th = document.createElement('th');
+        th.textContent = key;
+        headerRow.appendChild(th);
+    });
+
+    ['Jugement ASIN', 'Jugement Assignement', 'Jugement HitId'].forEach(label => {
+        const th = document.createElement('th');
+        th.textContent = label;
+        headerRow.appendChild(th);
+    });
+
+    thead.appendChild(headerRow);
+    brute_table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    brute_table.appendChild(tbody);
+
+    // Construction des lignes
+    parsedData.forEach((row, index) => {
+        const assinJson = row.assin_json ? row.assin_json.split(',') : [];
+        const jugeJson = row.assin_juge_json ? row.assin_juge_json.split(',') : [];
+
+        row.smarter = assinJson.join(',');
+        row.juge = jugeJson.join(',');
+
+        const rowElement = document.createElement('tr');
+
+        displayHeaders.forEach(header => {
+            const cell = document.createElement('td');
+            cell.textContent = row[header] || '';
+            rowElement.appendChild(cell);
+        });
+
+        sortedUniqueKeys.forEach(() => {
+            const cell = document.createElement('td');
+            cell.textContent = '';
+            rowElement.appendChild(cell);
+        });
+
+        // Cellules jugements vides à remplir plus tard
+        for (let i = 0; i < 3; i++) {
+            const cell = document.createElement('td');
+            cell.textContent = '';
+            rowElement.appendChild(cell);
+        }
+
+        tbody.appendChild(rowElement);
+        row.index = index; // stocker index pour référence dans jugements
+    });
+
+    // Regroupements par key, assignmentId, hitid
+    const groupedByKey = parsedData.reduce((acc, row) => {
+        if (!acc[row.key]) acc[row.key] = [];
+        acc[row.key].push(row);
+        return acc;
+    }, {});
+
+    const groupedByAssignment = parsedData.reduce((acc, row) => {
+        if (!acc[row.assignmentid]) acc[row.assignmentid] = [];
+        acc[row.assignmentid].push(row);
+        return acc;
+    }, {});
+
+    const groupedByHit = parsedData.reduce((acc, row) => {
+        if (!acc[row.hitid]) acc[row.hitid] = [];
+        acc[row.hitid].push(row);
+        return acc;
+    }, {});
+
+    // Calcul Jugement ASIN par groupe key
+    Object.keys(groupedByKey).forEach(key => {
+        const group = groupedByKey[key];
+        const totalRows = group.length;
+
+        group.forEach(row => {
+            const rowIndex = row.index;
+            const rowElement = tbody.rows[rowIndex];
+
+            sortedUniqueKeys.forEach(attr => {
+                let cellValue = '';
+                const smarterHasAttr = row.smarter.includes(attr);
+                const jugeHasAttr = row.juge.includes(attr);
+                const countSmarterCorrect = group.filter(r => r.smarter.includes(attr) && r.juge.includes(attr)).length;
+                const countSmarterIncorrect = group.filter(r => r.smarter.includes(attr) && !r.juge.includes(attr)).length;
+                const countMissing = group.filter(r => !r.smarter.includes(attr) && r.juge.includes(attr)).length;
+
+                if (smarterHasAttr && jugeHasAttr) {
+                    cellValue = countSmarterCorrect >= totalRows / 2 ? 'c_maj' : 'c_min';
+                } else if (smarterHasAttr && !jugeHasAttr) {
+                    cellValue = countSmarterIncorrect >= totalRows / 2 ? 'i_maj' : 'i_min';
+                } else if (!smarterHasAttr && jugeHasAttr) {
+                    cellValue = countMissing >= totalRows / 2 ? 'missing_maj' : 'missing_min';
+                }
+
+                const colIndex = displayHeaders.length + sortedUniqueKeys.indexOf(attr);
+                const cell = rowElement.cells[colIndex];
+                if (cell) {
+                    cell.textContent = cellValue;
+                }
+            });
+
+            // Jugement ASIN
+            const asinJudgmentIndex = displayHeaders.length + sortedUniqueKeys.length;
+            const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+
+            const cellValues = Array.from(rowElement.cells)
+                .slice(displayHeaders.length, displayHeaders.length + sortedUniqueKeys.length)
+                .map(cell => cell.textContent);
+
+            if (cellValues.some(v => ['i_min', 'i_maj', 'missing_min', 'missing_maj'].includes(v))) {
+                asinJudgmentCell.textContent = 'ko';
+            } else if (cellValues.some(v => ['c_min', 'c_maj'].includes(v)) &&
+                !cellValues.some(v => ['i_min', 'i_maj', 'missing_min', 'missing_maj'].includes(v))) {
+                asinJudgmentCell.textContent = 'ok';
+            }
+        });
+    });
+
+    // Calcul Jugement Assignement par groupe assignmentId
+    Object.keys(groupedByAssignment).forEach(assignmentId => {
+        const assignmentGroup = groupedByAssignment[assignmentId];
+        const totalCount = assignmentGroup.length;
+
+        const okCount = assignmentGroup.filter(row => {
+            const rowIndex = row.index;
+            const rowElement = tbody.rows[rowIndex];
+            const asinJudgmentIndex = displayHeaders.length + sortedUniqueKeys.length;
+            const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+            return asinJudgmentCell.textContent === 'ok';
+        }).length;
+
+        const assignmentJudgmentRatio = okCount / totalCount;
+        const assignmentJudgment = assignmentJudgmentRatio > 0.5 ? 'assignement_ok' : 'assignement_ko';
+
+        assignmentGroup.forEach(row => {
+            const rowIndex = row.index;
+            const rowElement = tbody.rows[rowIndex];
+            const assignmentJudgmentCellIndex = displayHeaders.length + sortedUniqueKeys.length + 1;
+            const assignmentJudgmentCell = rowElement.cells[assignmentJudgmentCellIndex];
+            assignmentJudgmentCell.textContent = assignmentJudgment;
+        });
+    });
+
+    // Calcul Jugement HitId par groupe hitid
+    Object.keys(groupedByHit).forEach(hitid => {
+        const hitGroup = groupedByHit[hitid];
+        const totalCount = hitGroup.length;
+
+        const okCount = hitGroup.filter(row => {
+            const rowIndex = row.index;
+            const rowElement = tbody.rows[rowIndex];
+            const assignmentJudgmentCellIndex = displayHeaders.length + sortedUniqueKeys.length + 1;
+            const assignmentJudgmentCell = rowElement.cells[assignmentJudgmentCellIndex];
+            return assignmentJudgmentCell.textContent === 'assignement_ok';
+        }).length;
+
+        const hitJudgmentRatio = okCount / totalCount;
+        const hitJudgment = hitJudgmentRatio > 0.5 ? 'hitid_ok' : 'hitid_ko';
+
+        hitGroup.forEach(row => {
+            const rowIndex = row.index;
+            const rowElement = tbody.rows[rowIndex];
+            const hitJudgmentCellIndex = displayHeaders.length + sortedUniqueKeys.length + 2;
+            const hitJudgmentCell = rowElement.cells[hitJudgmentCellIndex];
+            hitJudgmentCell.textContent = hitJudgment;
+        });
+    });
+
+    calculerScoreGlobale();
+}
+
+
+
+
+function calculerScoreGlobale() {
+
+  const brute_table = document.getElementById('brute_table');
+  if (!brute_table) {
+    alert('Le tableau brute_table est introuvable.');
+    return;
+  }
+
+  const headerRow = brute_table.querySelector('thead tr');
+  if (!headerRow) {
+    alert('Le tableau brute_table n\'a pas d\'en-tête (thead tr).');
+    return;
+  }
+
+  const rows = brute_table.querySelectorAll('tbody tr');
+  if (!rows || rows.length === 0) {
+    alert('Le tableau brute_table ne contient pas de lignes dans tbody.');
+    return;
+  }
+
+  const header = headerRow.getElementsByTagName('th');
+  let indexes = {};
+
+  // Construire l’index des colonnes utiles (tout en minuscules)
+  for (let i = 0; i < header.length; i++) {
+    const colName = header[i].innerText.trim().toLowerCase();
+    if (['hitid', 'assignmentid', 'jugement asin', 'jugement assignement', 'jugement hitid'].includes(colName)) {
+      indexes[colName] = i;
+    }
+  }
+
+  if (indexes['hitid'] === undefined || indexes['jugement hitid'] === undefined) {
+    alert('Colonnes "hitid" ou "jugement hitid" manquantes dans le tableau.');
+    return;
+  }
+
+  let hitSet = new Set();
+  let hitKOSet = new Set();
+  let attributeCounts = {
+    correct_majority: 0,
+    correct_minority: 0,
+    incorrect_majority: 0,
+    incorrect_minority: 0
+  };
+
+  const attributeColumns = [
+    'asin_image_not_load', 'wrong_age_group', 'wrong_category', 'color', 'pattern', 'material', 'size',
+    'shape', 'support_type', 'extra_features', 'location', 'no_difference', 'has_product_difference',
+    'is_wrong_characteristic', 'is_wrong_size_or_count', 'is_wrong_bundle', 'is_wrong_packaging_overlay',
+    'irrelevant', 'exact_match', 'possible_substitute', 'cannot_judge'
+  ];
+
+  for (let i = 0; i < rows.length; i++) {
+    const cells = rows[i].getElementsByTagName('td');
+    if (!cells || cells.length === 0) continue;
+
+    const hitId = cells[indexes['hitid']]?.innerText.trim() || '';
+    const jugementHitId = cells[indexes['jugement hitid']]?.innerText.trim() || '';
+
+    if (!hitId) continue;
+
+    hitSet.add(hitId);
+    if (jugementHitId === 'hitid_ko') {
+      hitKOSet.add(hitId);
+    }
+
+    attributeColumns.forEach(attr => {
+      const attrIndex = Array.from(header).findIndex(th => th.innerText.trim().toLowerCase() === attr.toLowerCase());
+      if (attrIndex !== -1 && cells[attrIndex]) {
+        const attrValue = cells[attrIndex].innerText.trim();
+        if (attrValue === 'c_maj') {
+          attributeCounts.correct_majority++;
+        } else if (attrValue === 'c_min') {
+          attributeCounts.correct_minority++;
+        } else if (attrValue === 'i_maj' || attrValue === 'missing_maj') {
+          attributeCounts.incorrect_majority++;
+        } else if (attrValue === 'i_min' || attrValue === 'missing_min') {
+          attributeCounts.incorrect_minority++;
+        }
+      }
+    });
+  }
+
+  const totalAttributes = attributeCounts.correct_majority + attributeCounts.correct_minority + attributeCounts.incorrect_majority + attributeCounts.incorrect_minority;
+
+  const formatPercentage = (value) => {
+    return isNaN(value) || totalAttributes === 0 ? '0%' : value.toFixed(2) + '%';
+  };
+
+  const correctMajorityPercentage = formatPercentage((attributeCounts.correct_majority / totalAttributes) * 100);
+  const correctMinorityPercentage = formatPercentage((attributeCounts.correct_minority / totalAttributes) * 100);
+  const incorrectMajorityPercentage = formatPercentage((attributeCounts.incorrect_majority / totalAttributes) * 100);
+  const incorrectMinorityPercentage = formatPercentage((attributeCounts.incorrect_minority / totalAttributes) * 100);
+
+  // Affichage simple dans #scoreSummary
+	const scoreSummaryDiv = document.getElementById('scoreSummary');
+	if (scoreSummaryDiv) {
+	  scoreSummaryDiv.style.border = '2px solid black';     // contour significatif
+	  scoreSummaryDiv.style.padding = '8px';
+	  scoreSummaryDiv.style.borderRadius = '6px';
+	  scoreSummaryDiv.style.backgroundColor = '#f9f9f9';
+
+	  // Création du texte avec span colorisé pour C_Maj
+	  scoreSummaryDiv.innerHTML =
+		//`<span style="color: ${getCMajColor(correctMajorityPercentage)};">` +
+		//`C_Maj: ${correctMajorityPercentage} (${attributeCounts.correct_majority})</span>   ` +
+		//`C_Min: ${correctMinorityPercentage} (${attributeCounts.correct_minorority})   ` +
+		//`I_Maj: ${incorrectMajorityPercentage} (${attributeCounts.incorrect_majority})   ` +
+		//`I_Min: ${incorrectMinorityPercentage} (${attributeCounts.incorrect_minority})`;
+		
+		`<span style="color: ${getCMajColor(correctMajorityPercentage)};">` +
+		  `Correct Majority: ${correctMajorityPercentage}</span>&nbsp;&nbsp;&nbsp;&nbsp;` +
+		  `Correct Minority: ${correctMinorityPercentage}&nbsp;&nbsp;&nbsp;&nbsp;` +
+		  `Incorrect Majority: ${incorrectMajorityPercentage}&nbsp;&nbsp;&nbsp;&nbsp;` +
+		  `Incorrecte Minority: ${incorrectMinorityPercentage}`;
+	}
+}
+
+// Fonction pour choisir la couleur selon la valeur en pourcentage (string "xx.xx%")
+function getCMajColor(percentageStr) {
+  const val = parseFloat(percentageStr);
+  if (val > 95) return '#006400';        // vert foncé
+  else if (val >= 85 && val <= 94.99) return '#228B22'; // vert moins foncé
+  else if (val < 50) return '#8B0000';   // rouge foncé
+  else if (val < 85) return '#FF0000';   // rouge normal
+  return 'black'; // défaut
+}
+
+
+document.getElementById('hitContainer').addEventListener('change', (event) => {
+  if (event.target.type === 'checkbox') {
+    const doneButton = document.getElementById('done');
+    if (doneButton) {
+      //doneButton.click();
+    } else {
+      //console.warn('Bouton "done" introuvable');
+    }
+  }
+});
+
+function resetCanvasTransform() {
+  const canvas = document.getElementById("floatingASINCanvas");
+  if (!canvas) return;
+
+  // Reset variables globales du canvas
+  currentScale = 1;
+  currentAngle = 0;
+  targetAngle = 0;
+  canvas.dataset.scale = 1;
+  canvas.dataset.rotation = 0;
+  canvas.dataset.x = 0;
+  canvas.dataset.y = 0;
+
+  // Reset CSS transform si tu en as appliqué
+  canvas.style.transform = 'translate(0px,0px) scale(1) rotate(0deg)';
+
+  // Redessine l'image à l'état initial
+  if (loadedImage) {
+    const ctx = canvas.getContext("2d");
+    resizeCanvasForRotation(canvas, loadedImage, currentAngle, currentScale);
+    drawImage(ctx, loadedImage, currentAngle, currentScale);
+  }
+}
+
+
+  </script>
+</html>

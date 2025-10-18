@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QAS Utility</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #f7f8fa;
+      color: #1c1c1e;
+    }
+
+    /* Navbar personnalisée */
+    .navbar-custom {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+    .navbar-brand {
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      font-size: 1.25rem;
+    }
+
+    /* Bouton menu unique */
+    .btn-unique {
+      background: linear-gradient(145deg, #ffffff, #e0e7ff);
+      color: #4f46e5;
+      border-radius: 12px 2px 12px 2px;
+      font-weight: 600;
+      box-shadow: 4px 4px 12px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+    }
+    .btn-unique:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 6px 6px 16px rgba(0,0,0,0.25);
+    }
+
+    /* Boutons menu colorés */
+    .btn-menu-link {
+      border-radius: 16px 4px 16px 4px;
+      font-weight: 500;
+      box-shadow: 3px 3px 10px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      color: #1c1c1e;
+    }
+    .btn-menu-link:hover {
+      transform: scale(1.05) rotate(-1deg);
+      box-shadow: 6px 6px 20px rgba(0,0,0,0.2);
+      color: #000; /* Texte noir pour lisibilité */
+    }
+
+    /* Couleurs claires pour chaque bouton */
+    .color-1 { background: #ffe4e1; }
+    .color-2 { background: #fff0ba; }
+    .color-3 { background: #d4f1f4; }
+    .color-4 { background: #e2f0cb; }
+    .color-5 { background: #fddde6; }
+    .color-6 { background: #cce7ff; }
+    .color-7 { background: #fef9c3; }
+    .color-8 { background: #fbcce7; }
+    .color-9 { background: #d5f5e3; }
+    .color-10 { background: #ffe1c6; }
+    .color-11 { background: #e1d5ff; }
+    .color-12 { background: #c3f0f0; }
+
+    /* Main */
+    main {
+      margin-top: 80px;
+    }
+
+    iframe {
+      border: none;
+      width: 100%;
+      height: calc(100vh - 100px);
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top px-4">
+    <span class="navbar-brand">QAS Utility</span>
+    <button class="btn btn-unique ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#menuModal">
+      ☰ Menu
+    </button>
+  </nav>
+
+  <!-- Modal Menu -->
+  <div class="modal fade" id="menuModal" tabindex="-1" aria-labelledby="menuModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content rounded-4 shadow">
+        <div class="modal-header">
+          <h5 class="modal-title" id="menuModalLabel">Raccourcis</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row row-cols-2 g-3">
+            <div class="col"><button class="btn btn-menu-link w-100 color-1" onclick="loadPage('assets/Accord_detaillees.html', this)">Accord détaillées</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-2" onclick="loadPage('assets/accord_et_partage (version finale).html', this)">Accord & Partage</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-3" onclick="loadPage('assets/CRM utilitie (finale version).html', this)">Rapport QAS Utilities</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-4" onclick="loadPage('assets/Spinner.html', this)">Spinner Utilities</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-5" onclick="loadPage('assets/Luxembourg_vercel.html', this)">Luxembourg</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-6" onclick="loadPage('assets/AZL-Luxembourg (picking).html', this)">AZL-Lux Picking</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-7" onclick="loadPage('assets/AZL-Utilities.html', this)">AZL-Luxembourg</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-8" onclick="loadPage('assets/vercel_picking (latest).html', this)">Vercel Picker</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-9" onclick="loadPage('assets/consultation_congé_qas.html', this)">Gestion Planning Congé</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-10" onclick="loadPage('assets/copie_Nettoyage_Shopping.html', this)">My Shopping</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-11" onclick="loadPage('assets/TeamZ Corporation.html', this)">TeamZ Corporation</button></div>
+            <div class="col"><button class="btn btn-menu-link w-100 color-12" onclick="loadPage('assets/chat_boot.html', this)">Boot Vercel</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenu principal -->
+  <main class="container-fluid px-4">
+    <iframe id="mainContent" src=""></iframe>
+  </main>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const titleEl = document.querySelector('.navbar-brand');
+    const iframe = document.getElementById('mainContent');
+
+    function loadPage(url, el) {
+      iframe.src = url;
+      titleEl.textContent = el.textContent;
+      localStorage.setItem('lastPage', url);
+      localStorage.setItem('lastPageTitle', el.textContent);
+      var menuModalEl = document.getElementById('menuModal');
+      var modal = bootstrap.Modal.getInstance(menuModalEl);
+      modal.hide();
+    }
+
+    window.onload = function() {
+      const lastPage = localStorage.getItem('lastPage');
+      const lastPageTitle = localStorage.getItem('lastPageTitle');
+      if (lastPage && lastPageTitle) {
+        iframe.src = lastPage;
+        titleEl.textContent = lastPageTitle;
+      }
+    };
+  </script>
+
+</body>
+</html>

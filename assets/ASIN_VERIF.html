@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSV Parser</title>
+    <script src="papaparse_rado.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: blue;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+        th {
+            background-color: blue;
+            color: white;
+        }
+        #notification {
+            display: none;
+            position: fixed;
+            top: 10px;
+            left: 20%;
+            transform: translateX(-50%);
+            background-color: white;
+            color: green;
+            padding: 10px;
+            border: 2px solid green;
+            border-radius: 5px;
+        }
+		#resultTable {
+						font-size: 14px;
+					}
+    </style>
+</head>
+<body>
+    <div class="button-container">
+        <input type="file" id="fileInput" accept=".tsv">
+        <button onclick="copyTable()">Copy Table</button>
+    </div>
+    <div id="notification">The processing and analysis of the batch is complete!!!</div>
+    <h2>Identical Query / Product ASIN</h2>
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>Source.name</th>
+                <th>HITId</th>
+                <th>AssignmentId</th>
+                <th>Input.queryProductASIN</th>
+                <th>product_ASIN</th>
+                <th>WorkerId</th>
+                <th>Smarter_answer</th>
+                <th>Input.queryProductTitle</th>
+				
+                <th>Input.imageURL</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            Papa.parse(file, {
+                delimiter: "\t",
+                header: true,
+                complete: function(results) {
+                    const data = results.data;
+                    const tableBody = document.getElementById('resultTable').getElementsByTagName('tbody')[0];
+                    tableBody.innerHTML = '';
+                    
+                    data.forEach(row => {
+                        if (!row['Input.queryProductASIN'] || !row['Answer.output_data']) return;
+                        
+                        try {
+                            const outputData = JSON.parse(row['Answer.output_data']);
+                            const productAsins = Object.keys(outputData);
+                            const matchedAsins = productAsins.filter(asin => asin === row['Input.queryProductASIN']);
+                            
+                            if (matchedAsins.length > 0) {
+                                const smarterAnswers = Object.entries(outputData[matchedAsins[0]])
+                                    .filter(([key, value]) => value === true)
+                                    .map(([key]) => key)
+                                    .join(', ');
+                                
+                                const newRow = document.createElement('tr');
+                                newRow.innerHTML = `
+                                    <td>${row['Source.name']}</td>
+                                    <td>${row['HITId']}</td>
+                                    <td>${row['AssignmentId']}</td>
+                                    <td>${row['Input.queryProductASIN']}</td>
+                                    <td>${matchedAsins.join('/')}</td>
+                                    <td>${row['WorkerId']}</td>
+                                    <td>${smarterAnswers}</td>
+                                    <td>${row['Input.queryProductTitle']}</td>
+			
+                                    <td>${row['Input.imageURL']}</td>
+                                `;
+                                tableBody.appendChild(newRow);
+                            }
+                        } catch (e) {
+                            console.error("Error parsing JSON", e);
+                        }
+                    });
+                    
+                    document.getElementById('notification').style.display = 'block';
+                    setTimeout(() => {
+                        document.getElementById('notification').style.display = 'none';
+                    }, 3000);
+                }
+            });
+        });
+		
+		
+		function copyTable() {
+            let table = document.getElementById("resultTable");
+            let range = document.createRange();
+            range.selectNode(table);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            document.execCommand("copy");
+            window.getSelection().removeAllRanges();
+            alert("Table copied to clipboard");
+        }
+		
+    </script>
+</body>
+</html>

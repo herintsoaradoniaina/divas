@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identification du style de contribution by Ravo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #4A90E2;
+        }
+        .contribution-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        label {
+            font-weight: bold;
+        }
+        select, input[type="text"], input[type="radio"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #357ABD;
+        }
+        .contribution-list {
+            margin-top: 30px;
+        }
+        .contribution-item {
+            background-color: #e0e0e0;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .question {
+            margin-bottom: 15px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+            font-size: 1.5em;
+            color: #4A90E2;
+        }
+        .answer-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .answer-item {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Identification du style de contribution</h1>
+
+    <div class="contribution-form">
+        <form id="contributionForm">
+            <label for="person-name">Nom de la personne :</label>
+            <input type="text" id="person-name" placeholder="Entrez le nom" oninput="updateResults()">
+
+            <!-- Formulaire des questions -->
+            <div class="question">
+                <label>Préférez-vous être formel ou informel ?</label>
+                <input type="radio" name="style-formel" value="1" onchange="updateResults()"> Formelle
+                <input type="radio" name="style-formel" value="0" onchange="updateResults()"> Informelle
+            </div>
+
+            <div class="question">
+                <label>Préférez-vous être spontané ou discipliné ?</label>
+                <input type="radio" name="style-spontane" value="0" onchange="updateResults()"> Spontané
+                <input type="radio" name="style-spontane" value="1" onchange="updateResults()"> Discipliné
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous impressionnable ou maître de vous ?</label>
+                <input type="radio" name="style-impressionnable" value="0" onchange="updateResults()"> Impressionnable
+                <input type="radio" name="style-impressionnable" value="1" onchange="updateResults()"> Maître de vous
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous impulsif ou méthodique ?</label>
+                <input type="radio" name="style-impulsif" value="0" onchange="updateResults()"> Impulsif
+                <input type="radio" name="style-impulsif" value="1" onchange="updateResults()"> Méthodique
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous proche/accessible ou distant ?</label>
+                <input type="radio" name="style-proche" value="0" onchange="updateResults()"> Proche/Accessible
+                <input type="radio" name="style-proche" value="1" onchange="updateResults()"> Distant
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous sentimental ou réfléchi ?</label>
+                <input type="radio" name="style-sentimental" value="0" onchange="updateResults()"> Sentimental
+                <input type="radio" name="style-sentimental" value="1" onchange="updateResults()"> Réfléchi
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous orienté vers les gens ou orienté vers le travail ?</label>
+                <input type="radio" name="style-oriente-gens" value="1" onchange="updateResults()"> Orienté vers les gens
+                <input type="radio" name="style-oriente-gens" value="0" onchange="updateResults()"> Orienté vers le travail
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous expansif ou réservé ?</label>
+                <input type="radio" name="style-expansif" value="1" onchange="updateResults()"> Expansif
+                <input type="radio" name="style-expansif" value="0" onchange="updateResults()"> Réservé
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous théâtral ou terre à terre ?</label>
+                <input type="radio" name="style-theatral" value="1" onchange="updateResults()"> Théâtral
+                <input type="radio" name="style-theatral" value="0" onchange="updateResults()"> Terre à terre
+            </div>
+
+            <div class="question">
+                <label>Êtes-vous chaleureux ou froid ?</label>
+                <input type="radio" name="style-chaleureux" value="1" onchange="updateResults()"> Chaleureux
+                <input type="radio" name="style-chaleureux" value="0" onchange="updateResults()"> Froid
+            </div>
+
+            <!-- Bouton de validation -->
+            <button type="button" onclick="validateAndDisplayResults()">Valider</button>
+        </form>
+        <p id="error-message" class="error" style="display:none;">Veuillez répondre à toutes les questions avant de soumettre !</p>
+    </div>
+
+    <!-- Affichage des réponses -->
+    <div class="contribution-list">
+        <h2>Réponses actuelles :</h2>
+        <ul id="answer-list" class="answer-list">
+            <!-- Les réponses seront affichées ici -->
+        </ul>
+    </div>
+
+    <!-- Affichage du style de contribution -->
+    <div id="contributionResult" class="result" style="display: none;"></div>
+</div>
+
+<script>
+    function updateResults() {
+        const personName = document.getElementById('person-name').value;
+        const form = document.getElementById('contributionForm');
+        const answerList = document.getElementById('answer-list');
+        let answers = [];
+
+        // Récupérer toutes les réponses sélectionnées
+        const radios = form.querySelectorAll('input[type="radio"]:checked');
+
+        answers = [];
+        radios.forEach(radio => {
+            const questionLabel = radio.closest('.question').querySelector('label').textContent.trim();
+            const value = radio.value;
+            answers.push(`${questionLabel}: ${value}`);
+        });
+
+        // Effacer les anciennes réponses
+        answerList.innerHTML = '';
+
+        if (personName !== "" && answers.length > 0) {
+            // Afficher les réponses actuelles avec leurs valeurs dans une liste
+            answers.forEach(answer => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('answer-item');
+                listItem.innerText = answer;
+                answerList.appendChild(listItem);
+            });
+        }
+    }
+
+    function validateAndDisplayResults() {
+        const form = document.getElementById('contributionForm');
+        const radios = form.querySelectorAll('input[type="radio"]:checked');
+        const errorMessage = document.getElementById('error-message');
+        const personName = document.getElementById('person-name').value;
+
+        // Vérifier si le nom est renseigné et si toutes les questions ont été répondues
+        if (personName === "" || radios.length < 10) {  // Assurez-vous qu'il y a 10 questions
+            errorMessage.style.display = 'block';  // Afficher le message d'erreur
+        } else {
+            errorMessage.style.display = 'none';             // Masquer le message d'erreur
+            const resultDiv = document.getElementById('contributionResult');
+
+            // Calcul du style de contribution en fonction des réponses
+            let scores = {
+                analysant: 0,
+                fonceur: 0,
+                promouvant: 0,
+                supportant: 0
+            };
+
+            // Associer les valeurs de chaque question aux styles
+            radios.forEach(radio => {
+                const value = parseInt(radio.value);
+                
+                if (radio.name === "style-formel") {
+                    scores.analysant += value;
+                } else if (radio.name === "style-spontane") {
+                    scores.fonceur += value;
+                } else if (radio.name === "style-impressionnable") {
+                    scores.supportant += value;
+                } else if (radio.name === "style-impulsif") {
+                    scores.fonceur += value;
+                } else if (radio.name === "style-proche") {
+                    scores.promouvant += value;
+                } else if (radio.name === "style-sentimental") {
+                    scores.supportant += value;
+                } else if (radio.name === "style-oriente-gens") {
+                    scores.promouvant += value;
+                } else if (radio.name === "style-expansif") {
+                    scores.promouvant += value;
+                } else if (radio.name === "style-theatral") {
+                    scores.promouvant += value;
+                } else if (radio.name === "style-chaleureux") {
+                    scores.supportant += value;
+                }
+            });
+
+            // Déterminer le style de contribution dominant
+            let dominantStyle = "Analysant"; // Valeur par défaut
+            let maxScore = -1;
+
+            for (let style in scores) {
+                if (scores[style] > maxScore) {
+                    maxScore = scores[style];
+                    dominantStyle = style.charAt(0).toUpperCase() + style.slice(1);
+                }
+            }
+
+            // Afficher le résultat
+            resultDiv.innerHTML = `<strong>Style de contribution de ${personName} :</strong> ${dominantStyle}`;
+            resultDiv.style.display = 'block';
+        }
+    }
+</script>
+
+</body>
+</html>

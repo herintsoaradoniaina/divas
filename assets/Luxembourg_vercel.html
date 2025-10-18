@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Visualisation TSV</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+<style>
+#confirmOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+#confirmBox {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 400px;
+    text-align: center;
+    font-family: Roboto, sans-serif;
+}
+
+.confirmActions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+#confirmBox button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#confirmYes {
+    background: #d9534f;
+    color: white;
+}
+
+#confirmNo {
+    background: #ccc;
+    color: black;
+}
+/* Police globale */
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 20px;
+}
+
+/* Centrer certaines colonnes spécifiques */
+#resultTable th:nth-child(19),
+#resultTable td:nth-child(19),
+#resultTable th:nth-child(21),
+#resultTable td:nth-child(21),
+#resultTable th:nth-child(22),
+#resultTable td:nth-child(22),
+#resultTable th:nth-child(23),
+#resultTable td:nth-child(23),
+#resultTable th:nth-child(24),
+#resultTable td:nth-child(24),
+#resultTable th:nth-child(25),
+#resultTable td:nth-child(25) {
+    text-align: center;
+}
+
+/* Table générale */
+#resultTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    display: block;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+#resultTable thead {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+#resultTable tbody {
+    display: block;
+    max-height: 550px;
+    overflow-y: auto;
+    width: 100%;
+}
+
+#resultTable tbody tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* En-têtes */
+#resultTable th {
+    background: black;
+    color: white;
+    text-align: left;
+    vertical-align: top;
+    padding: 4px 8px;
+    line-height: 1.2em;
+}
+
+#resultTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* Cellules */
+#resultTable td {
+    text-align: left;
+    vertical-align: top;
+    padding: 4px 8px;
+    word-wrap: break-word;
+    white-space: normal;
+    line-height: 1.2em;
+}
+
+/* Inputs dans table */
+#resultTable td input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 2px;
+    overflow: hidden;
+}
+
+/* Alternance de couleur des groupes de 3 lignes */
+.group-white { background-color: #e4f07f; }
+.group-gray { background-color: #84f5f5; }
+
+/* Bordure en bas de chaque 3ᵉ ligne */
+#resultTable tbody tr:nth-child(3n) {
+    border-bottom: 3px solid red;
+}
+#resultTable tbody tr:nth-child(3n) td {
+    padding-bottom: 4px;
+}
+
+/* Hover sur les lignes pour lisibilité */
+#resultTable tr:hover {
+    background-color: #ffeeba;
+}
+
+/* Styles boutons */
+button {
+    background-color: #4da6ff;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-family: 'Roboto', sans-serif;
+}
+
+button:hover {
+    background-color: #3399ff;
+}
+
+/* Styles inputs texte */
+input[type="text"], input[type="file"] {
+    background-color: #cce6ff;
+    color: #000;
+    border: 1px solid #4da6ff;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Radio buttons */
+input[type="radio"] {
+    accent-color: #4da6ff;
+}
+
+/* Masquer datasource si nécessaire */
+#datasource {
+    display: none;
+}
+</style>
+
+</head>
+<body>
+<div id="fileInfoBanner" style="display:none; text-align:center; background:#222; color:white; padding:15px; font-size:18px; font-weight:bold;">
+    Filename: <span id="bannerFileName"></span> | Lines: <span id="bannerLineRange"></span>
+</div>
+
+<!-- Ligne regroupant fichier + options + actions -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="file" id="fileInput" accept=".tsv,.txt,.xlsx">
+        <label style="display: flex; align-items: center; gap: 4px;">
+            <input type="checkbox" id="includeHeaders" checked>
+            Avec en-têtes
+        </label>
+        <button id="exportSheetBtn">Copier vers Sheet</button>
+    </div>
+    <div>
+        <!-- Bouton pour lancer la suppression -->
+        <button id="resetFileDataBtn">Réinitialiser</button>
+    </div>
+</div>
+
+<!-- Choix de mode d'affichage -->
+<div style="margin-bottom: 10px;">
+    <label><input type="radio" name="viewMode" value="utiles"> Colonnes utiles</label>
+    <label><input type="radio" name="viewMode" value="tous" checked> Tous</label>
+</div>
+
+<!-- Plage de lignes -->
+<div id="plageContainer" style="margin-bottom:10px; display: flex; align-items: center; gap: 6px;">
+    <label>
+        Ligne début: <input type="text" id="startLine" style="width:60px;" placeholder="1">
+    </label>
+    <span>à</span>
+    <label>
+        Ligne fin: <input type="text" id="endLine" style="width:60px;" placeholder="6000">
+    </label>
+    <button id="parseButton">Parse</button>
+</div>
+
+<!-- Boîte de confirmation personnalisée -->
+<div id="confirmOverlay" style="display:none;">
+    <div id="confirmBox">
+        <h3>⚠️ Réinitialisation</h3>
+        <p id="confirmMessage"></p>
+        <div class="confirmActions">
+            <button id="confirmYes">Oui</button>
+            <button id="confirmNo">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<!-- Table d'origine -->
+<table id="datasource">
+    <thead></thead>
+    <tbody></tbody>
+</table>
+
+<h3>Table de Travail</h3>
+<table id="resultTable">
+    <thead></thead>
+    <tbody></tbody>
+</table>
+
+<!-- Footer HTML -->
+<div id="tableFooter" style="padding:10px; border-top:1px solid #ccc; display:flex; flex-direction: column; align-items: flex-start; gap: 5px;">
+    <button id="btnConsensus">Consensus</button>
+    <span id="consensusStats" style="font-weight: bold; font-size: 1.2em;"></span>
+</div>
+
+<!-- SheetJS pour XLSX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="papaparse_rado.js"></script>
+<script>
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const fileName = file.name;
+    const ext = fileName.split('.').pop().toLowerCase();
+
+    if(ext === "tsv" || ext === "csv") {
+        // ✅ Utiliser PapaParse pour CSV/TSV
+        Papa.parse(file, {
+            delimiter: ext === "tsv" ? "\t" : ",",
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                handleParsedData(results.data, fileName);
+            }
+        });
+    } else if(ext === "xlsx") {
+        // ✅ Utiliser SheetJS pour XLSX
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const data = new Uint8Array(ev.target.result);
+            const workbook = XLSX.read(data, {type: "array"});
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, {defval:""});
+            handleParsedData(jsonData, fileName);
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        alert("Format de fichier non supporté : " + ext);
+    }
+});
+
+function handleParsedData(data, fileName) {
+    // Colonnes nécessaires
+    const requiredCols = [
+        "query",
+        "candidates_1", "candidates_2", "candidates_3",
+        "Single PT_assignment_1", "Best PT?_assignment_1", "PT span_assignment_1",
+        "Single PT_assignment_2", "Best PT?_assignment_2", "PT span_assignment_2",
+        "Single PT_assignment_3", "Best PT?_assignment_3", "PT span_assignment_3",
+        "_assignment_1", "_assignment_2", "_assignment_3",
+        "line_position", "ASSIGNMENT_POSITION", "MATRICULE", "START", "STOP", "DMT"
+    ];
+
+    const headers = Object.keys(data[0]).map(h => h.replace(/^\uFEFF/, "").trim());
+    const missing = requiredCols.filter(col => !headers.includes(col));
+
+    if(missing.length > 0){
+        alert("Colonne(s) manquante(s) : " + missing.join(", "));
+        return;
+    }
+
+    // Tout est OK → enregistrer le nom du fichier
+    localStorage.setItem("lastLuxembourgFileName", fileName);
+    alert("Fichier chargé avec succès : " + fileName);
+    window.loadedFileData = data;
+
+    // Traitement comme avant
+    let grouped = {};
+    data.forEach(row => {
+        let pos = row.line_position;
+        if (!grouped[pos]) grouped[pos] = [];
+        grouped[pos].push(row);
+    });
+
+    let filtered = [];
+    for (let pos in grouped) {
+        if (grouped[pos].length >= 3) {
+            filtered.push(...grouped[pos]);
+        }
+    }
+
+    filtered.sort((a, b) => Number(a.line_position) - Number(b.line_position));
+
+    filtered.forEach(row => {
+        row.START = excelDateToJS(row.START);
+        row.STOP = excelDateToJS(row.STOP);
+    });
+
+      displayTable(filtered);
+    //buildResultTable(filtered);
+    //loadSavedJugeValues();
+    //summary();
+}
+
+
+// Convertir un nombre Excel style "45880,36726" en Date/Heure
+function excelDateToJS(excelVal) {
+    if (excelVal == null || excelVal === "") return "";
+    
+    // Convertir en string pour utiliser replace
+    let numStr = excelVal.toString().replace(",", ".");
+    let num = parseFloat(numStr);
+    
+    if (isNaN(num)) return "";
+
+    // Conversion Excel → JS Date
+    let utc_days = Math.floor(num - 25569);
+    let utc_value = utc_days * 86400;
+    let fractional_day = num - Math.floor(num) + 0.0000001;
+    let totalSeconds = Math.floor(utc_value + fractional_day * 86400);
+    
+    return new Date(totalSeconds * 1000).toLocaleDateString(); // seulement date
+}
+
+
+function displayTable(data) {
+    const table = document.getElementById("datasource");
+    const thead = table.querySelector("thead");
+    const tbody = table.querySelector("tbody");
+
+    if (!data.length) {
+        thead.innerHTML = "";
+        tbody.innerHTML = "<tr><td colspan='100%'>Aucune donnée valide</td></tr>";
+        return;
+    }
+
+    let headers = Object.keys(data[0]);
+    thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+    tbody.innerHTML = data.map(row => {
+        return "<tr>" + headers.map(h => `<td>${row[h] ?? ""}</td>`).join("") + "</tr>";
+    }).join("");
+}
+
+function buildResultTable(data) {
+    const table = document.getElementById("resultTable");
+    const thead = table.querySelector("thead");
+    const tbody = table.querySelector("tbody");
+
+    function getVal(row, colName) {
+        const target = colName.toLowerCase().trim();
+        for (const k of Object.keys(row)) {
+            const normalized = k.replace(/^\uFEFF/, "").trim().toLowerCase();
+            if (normalized === target) return row[k];
+        }
+        return "";
+    }
+
+    const headers = [
+        "line_position","ASSIGNMENT_POSITION","query","TRAITANT","STOP","DMT",
+        "Single PT_assignment","Best PT?_assignment","PT span_assignment",
+        "candidates","MATRICULE","TTT","Volume Produit","col_n/a",
+        "pass1","pass2","pass3","Juge",
+        "Juge_Single PT_assignment","Juge_Best PT?_assignment",
+		"Commentaires_CQ",
+        "Stat_Single PT_assignment","Stat_Best PT?_assignment",
+        "Status assignement",
+        "Accord_Single PT_assignment","Accord_Best PT?_assignment",
+		"Status HitID"
+    ];
+    thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+
+    // Récupérer plage depuis input
+    const start = parseInt(document.getElementById('startLine').value) || 1;
+    const end = parseInt(document.getElementById('endLine').value) || 6000;
+
+    // Grouper par line_position
+    let grouped = {};
+    data.forEach(row => {
+        const linePos = Number(row.line_position);
+        if (linePos >= start && linePos <= end) { // ✅ filtre par plage
+            if (!grouped[row.line_position]) grouped[row.line_position] = [];
+            grouped[row.line_position].push(row);
+        }
+    });
+
+    let resultRows = [];
+
+    const fileName = localStorage.getItem("lastLuxembourgFileName") || "unknown_file";
+    const storagePrefix = fileName;
+
+    for (let pos in grouped) {
+        let group = grouped[pos];
+        group.sort((a,b) => Number(a.ASSIGNMENT_POSITION) - Number(b.ASSIGNMENT_POSITION));
+
+        // On ne prend que les groupes d'au moins 3 lignes
+        if (group.length < 3) continue;
+
+        let tempRows = group.map((row, idx) => {
+            let num = idx + 1;
+            return {
+                "line_position": row.line_position,
+                "ASSIGNMENT_POSITION": row.ASSIGNMENT_POSITION,
+                "query": getVal(row, "query"),
+                "TRAITANT": row.MATRICULE,
+                "STOP": row.STOP,
+                //"DMT": row.DMT,
+				"DMT": typeof row.DMT === "number" ? excelTimeToHHMMSS(row.DMT) : row.DMT,
+                "Single PT_assignment": row[`Single PT_assignment_${num}`] || "",
+                "Best PT?_assignment": row[`Best PT?_assignment_${num}`] || "",
+                "PT span_assignment": row[`PT span_assignment_${num}`] || "",
+                "candidates": row[`candidates_${num}`] || "",
+                "TTT": "",
+                "Volume Produit": "",
+                "col_n/a": row[`candidates_${num}`] || "",
+                "pass1": "",
+                "pass2": "",
+                "pass3": "",
+                "Juge": "",
+                "Juge_Single PT_assignment": "",
+                "Juge_Best PT?_assignment": "",
+				"Commentaires_CQ":"",
+                "Stat_Single PT_assignment": "",
+				
+                "Stat_Best PT?_assignment": "",
+                "Status assignement":"",
+				
+                "Accord_Single PT_assignment": "",
+                "Accord_Best PT?_assignment": "",
+				"Status HitID":""
+            };
+        });
+
+        // 2) Transposition pour pass1/2/3
+        if (tempRows.length >= 3) {
+            const transposed = [
+                tempRows.map(r => r["Single PT_assignment"]),
+                tempRows.map(r => r["Best PT?_assignment"]),
+                tempRows.map(r => r["PT span_assignment"])
+            ];
+            transposed.forEach((rowVals, rowIdx) => {
+                tempRows[rowIdx]["pass1"] = rowVals[0];
+                tempRows[rowIdx]["pass2"] = rowVals[1];
+                tempRows[rowIdx]["pass3"] = rowVals[2];
+            });
+        }
+
+// 3) Ajouter les éléments "Juge" et "Commentaires_CQ" selon la ligne du groupe
+tempRows.forEach((r, idx) => {
+    const lineId = r.line_position;
+    let jugeHtml = "";
+
+    // Ligne 1 : Single PT assignment
+    if (idx === 0) {
+        const saved = localStorage.getItem(`${fileName}_Single_PT_assignment_juge${lineId}`) || "";
+        jugeHtml = `<select id="Single_PT_assignment_juge${lineId}">
+                        <option value="" ${saved === "" ? "selected" : ""}>-- non jugé --</option>
+                        <option value="yes" ${saved === "yes" ? "selected" : ""}>yes</option>
+                        <option value="no" ${saved === "no" ? "selected" : ""}>no</option>
+                    </select>`;
+    } 
+    // Ligne 2 : Best PT assignment
+    else if (idx === 1) {
+        const firstRow = group[0];
+        const candidatesOptions = [firstRow.candidates_1, firstRow.candidates_2, firstRow.candidates_3]
+            .filter(v => v && v.trim() !== "");
+        const options = [
+            {value: "", label: "-- non jugé --"},
+            ...candidatesOptions.map(v => ({value: v, label: v})),
+            {value: "n/a", label: "n/a"}
+        ];
+        const saved = localStorage.getItem(`${fileName}_Best_PT_assignment_juge${lineId}`) || "";
+        jugeHtml = `<select id="Best_PT_assignment_juge${lineId}">
+                        ${options.map(o => `<option value="${o.value}" ${saved === o.value ? "selected" : ""}>${o.label}</option>`).join("")}
+                    </select>`;
+    } 
+    // Ligne 3 : zone texte libre
+    else if (idx === 2) {
+        const saved = localStorage.getItem(`${fileName}_text_juge${lineId}`) || "";
+        jugeHtml = `<input type="text" id="text_juge${lineId}" value="${saved}" />`;
+    }
+
+    // ✅ On remplit la colonne Juge avec le select/input correspondant
+    r["Juge"] = jugeHtml;
+
+    // ✅ On remplit la colonne Commentaires_CQ avec un input indépendant
+    const commentId = `Commentaires_CQ_${r.line_position}_${r.ASSIGNMENT_POSITION}`;
+    const savedComment = localStorage.getItem(`${storagePrefix}_${commentId}`) || "";
+    r["Commentaires_CQ"] = `<input type="text" id="${commentId}" value="${savedComment}" />`;
+});
+
+        resultRows.push(...tempRows);
+    }
+
+    // ⚡ Affichage final
+    tbody.innerHTML = resultRows.map((r, idx) => {
+        const groupIndex = Math.floor(idx / 3);
+        const rowClass = (groupIndex % 2 === 0) ? "group-white" : "group-gray";
+        return "<tr class='" + rowClass + "'>" + headers.map(h => r[h] ?? "").map(v=>`<td>${v}</td>`).join("") + "</tr>";
+    }).join("");
+
+setTimeout(() => {
+    document.querySelectorAll('#resultTable select, #resultTable input[type="text"]').forEach(el => {
+        el.addEventListener('change', function() {
+            const id = this.id;
+            if (!id) return;
+            localStorage.setItem(`${fileName}_${this.id}`, this.value || "");
+
+            // ✅ Console log pour la première liste déroulante
+            if (id.startsWith("Single_PT_assignment_juge")) {
+                const row = this.closest('tr');
+                const cells = row.querySelectorAll('td');
+
+                // Récupérer index des colonnes
+                const headers = Array.from(document.querySelectorAll('#resultTable thead th')).map(h => h.innerText.trim());
+                const idxComment = headers.indexOf('Commentaires_CQ');
+                const idxStatSingle = headers.indexOf('Stat_Single PT_assignment');
+                const idxStatBest = headers.indexOf('Stat_Best PT?_assignment');
+
+                //console.log(`Première liste déroulante changée : ${this.value} (id=${id})
+				//Commentaires_CQ = ${cells[idxComment]?.querySelector('input')?.value || ""}
+				//Stat_Single PT_assignment = ${cells[idxStatSingle]?.innerText.trim() || ""}
+				//Stat_Best PT?_assignment = ${cells[idxStatBest]?.innerText.trim() || ""}`);
+            }
+
+            juge_moi();
+        });
+
+        el.addEventListener('input', function() {
+            const id = this.id;
+            if (!id) return;
+            localStorage.setItem(`${fileName}_${id}`, this.value || "");
+            juge_moi();
+        });
+    });
+}, 0);
+
+
+    colorizeResultTable();
+}
+
+// ⚡ Déclenchement avec le bouton Parse
+document.getElementById('parseButton').addEventListener('click', function() {
+    const filteredData = window.loadedFileData || []; 
+    if(filteredData.length === 0) return; // rien à afficher
+
+    // Récupérer la plage saisie par l'utilisateur
+    const startLine = parseInt(document.getElementById('startLine').value) || 0;
+    const endLine = parseInt(document.getElementById('endLine').value) || 0;
+
+    // Affichage du banner
+    const fileName = localStorage.getItem("lastLuxembourgFileName") || "unknown_file";
+    document.getElementById("bannerFileName").innerText = fileName;
+    document.getElementById("bannerLineRange").innerText = `${startLine} à ${endLine}`;
+    document.getElementById("fileInfoBanner").style.display = "block";
+
+    // Construire et afficher le tableau (buildResultTable doit filtrer par line_position déjà)
+    buildResultTable(filteredData);
+    loadSavedJugeValues();
+    summary();
+});
+
+
+
+
+
+
+
+//colorisation visuel
+
+function colorizeResultTable() {
+    const table = document.getElementById("resultTable");
+    if (!table) return;
+
+    const rows = table.querySelectorAll("tbody tr");
+    rows.forEach((row, index) => {
+      const groupIndex = Math.floor(index / 3); // groupe de 3 lignes
+      if (groupIndex % 2 === 0) {
+        row.classList.add("group-white");
+      } else {
+        row.classList.add("group-gray");
+      }
+    });
+  }
+
+  // Appeler après avoir rempli le tableau
+ 
+
+
+// REMPLISSAGE DE RESULTAT DEJA JUGE ET ENREGISTRER LOCALEMENT
+function loadSavedJugeValues() {
+    const fileName = localStorage.getItem('lastLuxembourgFileName') || "unknown_file";
+    const storagePrefix = fileName; // Défini ici pour toute la fonction
+
+    const table = document.getElementById('resultTable');
+    const tbody = table.querySelector('tbody');
+    const rows = tbody.querySelectorAll('tr');
+
+    rows.forEach(row => {
+        const lineId = row.querySelector('td').innerText;
+        if (!lineId) return;
+
+        // 1ère liste déroulante
+        const singleSelect = document.getElementById(`Single_PT_assignment_juge${lineId}`);
+        const singleValue = localStorage.getItem(`${storagePrefix}_Single_PT_assignment_juge${lineId}`);
+        if (singleSelect && singleValue !== null) {
+            singleSelect.value = singleValue;
+            singleSelect.style.backgroundColor = 'white';
+            singleSelect.style.color = 'black';
+        }
+
+        // 2ème liste déroulante
+        const bestSelect = document.getElementById(`Best_PT_assignment_juge${lineId}`);
+        const bestValue = localStorage.getItem(`${storagePrefix}_Best_PT_assignment_juge${lineId}`);
+        if (bestSelect && bestValue !== null) {
+            bestSelect.value = bestValue;
+            bestSelect.style.backgroundColor = 'white';
+            bestSelect.style.color = 'black';
+        }
+
+        // zone texte juge
+        const textInput = document.getElementById(`text_juge${lineId}`);
+        const textValue = localStorage.getItem(`${storagePrefix}_text_juge${lineId}`);
+        if (textInput && textValue !== null) {
+            textInput.value = textValue;
+            textInput.style.backgroundColor = 'white';
+            textInput.style.color = 'black';
+        }
+
+        // zone texte Commentaires_CQ
+        const commentInput = row.querySelector(`input[id^="Commentaires_CQ_"]`);
+        if (commentInput) {
+            const commentId = commentInput.id;
+            const savedComment = localStorage.getItem(`${storagePrefix}_${commentId}`) || "";
+            commentInput.value = savedComment;
+            commentInput.style.backgroundColor = 'white';
+            commentInput.style.color = 'black';
+        }
+    });
+	
+    juge_moi();
+}
+
+
+
+
+
+document.getElementById('exportSheetBtn').addEventListener('click', () => {
+    const table = document.getElementById('resultTable');
+    const rows = Array.from(table.querySelectorAll('tr'));
+
+    const includeHeaders = document.getElementById('includeHeaders').checked;
+
+    const outputRows = [];
+
+    // Ajouter l'en-tête si demandé
+    if (includeHeaders) {
+        const headerCells = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.trim());
+        outputRows.push(headerCells.join("\t"));
+    }
+
+    // On commence après l'en-tête
+    const dataRows = rows.slice(1);
+
+    // Parcourir par groupes de 3 lignes
+    for (let i = 0; i < dataRows.length; i += 3) {
+        const group = dataRows.slice(i, i + 3);
+        if (group.length < 3) continue; // ignorer groupe incomplet
+
+        // Vérifier la valeur de la 1ère ligne (colonne du jugement)
+        const firstLineCells = Array.from(group[0].querySelectorAll('td'));
+        const jugeCell = firstLineCells.find(cell => cell.querySelector('select, input, textarea')) || null;
+
+        let jugeValue = "";
+        if (jugeCell) {
+            const input = jugeCell.querySelector('select, input, textarea');
+            jugeValue = (input.value || "").trim();
+        } else {
+            jugeValue = firstLineCells[0]?.innerText.trim() || "";
+        }
+
+        if (jugeValue === "" || jugeValue === "--non jugé--") {
+            continue; // ignorer ce groupe
+        }
+
+        // Ajouter les 3 lignes de ce groupe dans l'export
+        group.forEach(row => {
+            const cells = Array.from(row.querySelectorAll('td')).map(cell => {
+                const input = cell.querySelector('input, textarea, select');
+                if (input) {
+                    return (input.value || "").trim();
+                }
+                return cell.innerText.replace(/\n+/g, ' ').trim();
+            });
+            outputRows.push(cells.join("\t"));
+        });
+    }
+
+    if (outputRows.length) {
+        const finalText = outputRows.join("\n");
+
+        localStorage.setItem("exportedJudgedGroups", finalText);
+
+        navigator.clipboard.writeText(finalText)
+            .then(() => alert("Seulement les groupes jugés ont été copiés et enregistrés localement !"))
+            .catch(err => console.error("Erreur de copie :", err));
+    } else {
+        alert("Aucun groupe jugé trouvé.");
+    }
+});
+
+
+
+
+
+
+
+
+
+
+function juge_moi() {
+    const table = document.getElementById('resultTable');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    const headers = Array.from(table.querySelectorAll('thead th')).map(h => h.innerText.trim());
+    const idxJuge = headers.indexOf('Juge');
+    const idxPass1 = headers.indexOf('pass1');
+    const idxPass2 = headers.indexOf('pass2');
+    const idxPass3 = headers.indexOf('pass3');
+    const idxJugeSingle = headers.indexOf('Juge_Single PT_assignment');
+    const idxJugeBest = headers.indexOf('Juge_Best PT?_assignment');
+    const idxStatSingle = headers.indexOf('Stat_Single PT_assignment');
+    const idxStatBest = headers.indexOf('Stat_Best PT?_assignment');
+    const idxStatus = headers.indexOf('Status assignement');
+	const idxStatusHitID = headers.indexOf('Status HitID');
+    const idxAccordSingle = headers.indexOf('Accord_Single PT_assignment');
+    const idxAccordBest = headers.indexOf('Accord_Best PT?_assignment');
+
+    // Fonction sécurisée pour lire une cellule (texte ou input/select)
+    function getCellValue(cell) {
+        const input = cell.querySelector('input, textarea, select');
+        if (input) return (input.value || "").trim();
+        return cell.innerText.replace(/\n+/g, ' ').trim();
+    }
+
+    // Fonction sécurisée pour écrire dans une cellule
+    function setCellValue(cell, value) {
+        const input = cell.querySelector('input, textarea, select');
+        if (input) {
+            input.value = value;
+        } else {
+            cell.innerText = value;
+        }
+    }
+
+    for (let i = 0; i < rows.length; i += 3) {
+        const group = rows.slice(i, i + 3);
+        if (group.length < 3) continue;
+
+        const cells1 = group[0].querySelectorAll('td');
+        const cells2 = group[1].querySelectorAll('td');
+        const cells3 = group[2].querySelectorAll('td');
+
+        const jugeVal1 = getCellValue(cells1[idxJuge]);
+        const jugeVal2 = getCellValue(cells2[idxJuge]);
+
+        // Remplir les colonnes Juge_Single et Juge_Best
+        [cells1, cells2, cells3].forEach(c => setCellValue(c[idxJugeSingle], jugeVal1));
+        [cells1, cells2, cells3].forEach(c => setCellValue(c[idxJugeBest], jugeVal2));
+
+        // -----------------------------
+        // Stat_Single PT_assignment
+        const passValuesSingle = [
+            getCellValue(cells1[idxPass1]),
+            getCellValue(cells1[idxPass2]),
+            getCellValue(cells1[idxPass3])
+        ];
+        [cells1, cells2, cells3].forEach((c, idx) => {
+            if (jugeVal1 && (jugeVal1 === "yes" || jugeVal1 === "no")) {
+                setCellValue(c[idxStatSingle], (passValuesSingle[idx] !== jugeVal1) ? "KO" : "OK");
+            } else {
+                setCellValue(c[idxStatSingle], "");
+            }
+        });
+
+        // -----------------------------
+        // Stat_Best PT?_assignment
+        const passValuesBest = [
+            getCellValue(cells2[idxPass1]),
+            getCellValue(cells2[idxPass2]),
+            getCellValue(cells2[idxPass3])
+        ];
+
+        const judge1Valid = !!jugeVal1 && jugeVal1 !== "-- non jugé --";
+        //const judge2Valid = !!jugeVal2 && jugeVal2 !== "-- non jugé --" && jugeVal2 !== "n/a";
+		const judge2Valid = !!jugeVal2 && jugeVal2 !== "-- non jugé --"
+
+        const rowCells = [cells1, cells2, cells3];
+
+        // Vider par défaut
+        rowCells.forEach(c => setCellValue(c[idxStatBest], ""));
+
+        if (judge1Valid && judge2Valid) {
+            rowCells.forEach((c, idx) => {
+                const single = getCellValue(c[idxStatSingle]);
+                if (single === "OK") {
+                    setCellValue(c[idxStatBest], (passValuesBest[idx] === jugeVal2) ? "OK" : "KO");
+                } else {
+                    setCellValue(c[idxStatBest], "");
+                }
+            });
+        }
+
+// -----------------------------
+// Status assignement
+rowCells.forEach(c => {
+    const statSingle = getCellValue(c[idxStatSingle]);
+    const statBest = getCellValue(c[idxStatBest]);
+
+    if (statSingle === "OK" && statBest === "OK") {
+        setCellValue(c[idxStatus], "OK");
+    } else if (statSingle === "OK" && statBest === "") {
+        // ✅ Cas spécial : Stat_Single = OK et Stat_Best vide
+        setCellValue(c[idxStatus], "OK");
+    } else if (statSingle === "" && statBest === "") {
+        setCellValue(c[idxStatus], "");
+    } else {
+        setCellValue(c[idxStatus], "KO");
+    }
+});
+		
+		// -----------------------------
+		
+		// Status HitID
+		const statStatusValues = rowCells.map(c => getCellValue(c[idxStatus]));
+		if (statStatusValues.every(v => v === "")) {
+			// Si toutes les lignes du groupe sont vides => groupe pas encore jugé
+			rowCells.forEach(c => setCellValue(c[idxStatusHitID], ""));
+		} else {
+			const okCount = statStatusValues.filter(v => v === "OK").length;
+			const hitIDStatus = okCount > 1 ? "OK" : "KO"; // si >1 (donc 2 ou 3 OK) => OK, sinon KO
+			rowCells.forEach(c => setCellValue(c[idxStatusHitID], hitIDStatus));
+		}
+		
+        // -----------------------------
+        // Accord_Single PT_assignment
+        const statSingleValues = rowCells.map(c => getCellValue(c[idxStatSingle]));
+        const countsSingle = statSingleValues.reduce((acc, val) => {
+            acc[val] = (acc[val] || 0) + 1;
+            return acc;
+        }, {});
+        const majoritaireSingle = Object.keys(countsSingle).reduce((maxKey, key) => countsSingle[key] >= 2 ? key : maxKey, null);
+
+        rowCells.forEach((c, idx) => {
+            const val = statSingleValues[idx];
+            if (!majoritaireSingle) return setCellValue(c[idxAccordSingle], "");
+            if (val === "OK") setCellValue(c[idxAccordSingle], (val === majoritaireSingle) ? "Correct_Maj" : "Correct_Min");
+            else if (val === "KO") setCellValue(c[idxAccordSingle], (val === majoritaireSingle) ? "Incorrect_Maj" : "Incorrect_Min");
+            else setCellValue(c[idxAccordSingle], "");
+        });
+
+        // -----------------------------
+        // Accord_Best PT?_assignment
+        const statBestValues = rowCells.map(c => getCellValue(c[idxStatBest]));
+        const countsBest = statBestValues.reduce((acc, val) => {
+            acc[val] = (acc[val] || 0) + 1;
+            return acc;
+        }, {});
+        const majoritaireBest = Object.keys(countsBest).reduce((maxKey, key) => countsBest[key] >= 2 ? key : maxKey, null);
+
+        rowCells.forEach((c, idx) => {
+            const val = statBestValues[idx];
+            if (!majoritaireBest) return setCellValue(c[idxAccordBest], "");
+            if (val === "OK") setCellValue(c[idxAccordBest], (val === majoritaireBest) ? "Correct_Maj" : "Correct_Min");
+            else if (val === "KO") setCellValue(c[idxAccordBest], (val === majoritaireBest) ? "Incorrect_Maj" : "Incorrect_Min");
+            else setCellValue(c[idxAccordBest], "");
+        });
+    }
+}
+
+
+function summary() {
+    const sourceTable = document.getElementById('datasource');
+    const resultTable = document.getElementById('resultTable');
+    if (!sourceTable || !resultTable) return;
+
+    // --- Récupération des indices dans datasource ---
+    const sourceHeaders = Array.from(sourceTable.querySelectorAll('thead th')).map(th => 
+        th.textContent.replace(/\s+/g,' ').trim().toLowerCase()
+    );
+    const matriculeIndexSrc = sourceHeaders.indexOf('matricule');
+    const dmtIndexSrc = sourceHeaders.indexOf('dmt');
+    if (matriculeIndexSrc === -1 || dmtIndexSrc === -1) {
+        console.warn("Colonnes 'MATRICULE' ou 'DMT' non trouvées dans datasource");
+        return;
+    }
+
+    // --- Récupération des données source ---
+    const sourceRows = Array.from(sourceTable.querySelectorAll('tbody tr'));
+    const sourceData = sourceRows.map(row => {
+        const cells = row.querySelectorAll('td');
+        return {
+            MATRICULE: cells[matriculeIndexSrc]?.innerText.trim(),
+            DMT: cells[dmtIndexSrc]?.innerText.trim() || cells[dmtIndexSrc]?.innerText // fallback
+        };
+    });
+
+    // --- Fonction pour convertir un temps Excel (fraction de jour) en HH:MM:SS ---
+    function excelTimeToHHMMSS(val) {
+        if (!val) return "00:00:00";
+
+        // Si c'est déjà une string HH:MM:SS, on retourne tel quel
+        if (typeof val === "string" && val.includes(":")) return val;
+
+        // Conversion numérique (fraction de jour)
+        const num = parseFloat(val);
+        if (isNaN(num)) return "00:00:00";
+
+        const totalSeconds = Math.round(num * 86400);
+        const hours = String(Math.floor(totalSeconds / 3600)).padStart(2,"0");
+        const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2,"0");
+        const seconds = String(totalSeconds % 60).padStart(2,"0");
+        return `${hours}:${minutes}:${seconds}`;
+    }
+
+    // --- Calcul des totaux par matricule ---
+    const matriculeSummary = {};
+    sourceData.forEach(r => {
+        if (!r.MATRICULE) return;
+
+        // Convertir DMT en HH:MM:SS
+        const tttStr = excelTimeToHHMMSS(r.DMT);
+
+        // Calculer le total en secondes
+        const parts = tttStr.split(":").map(Number);
+        const totalSec = parts[0]*3600 + parts[1]*60 + parts[2];
+
+        if (!matriculeSummary[r.MATRICULE]) matriculeSummary[r.MATRICULE] = { totalSec: 0, volume: 0 };
+        matriculeSummary[r.MATRICULE].totalSec += totalSec;
+        matriculeSummary[r.MATRICULE].volume += 1;
+    });
+
+    const uniqueMatricules = Object.keys(matriculeSummary);
+
+    // --- Récupération des indices dans resultTable ---
+    const resultHeaders = Array.from(resultTable.querySelectorAll('thead th')).map(th => 
+        th.textContent.replace(/\s+/g,' ').trim().toLowerCase()
+    );
+    const matriculeIndexRes = resultHeaders.indexOf('matricule');
+    const tttIndexRes = resultHeaders.indexOf('ttt');
+    const volumeIndexRes = resultHeaders.indexOf('volume produit');
+
+    if (matriculeIndexRes === -1) console.warn("Colonne 'MATRICULE' non trouvée dans resultTable");
+    if (tttIndexRes === -1) console.warn("Colonne 'TTT' non trouvée dans resultTable");
+    if (volumeIndexRes === -1) console.warn("Colonne 'Volume Produit' non trouvée dans resultTable");
+
+    const tbody = resultTable.querySelector('tbody');
+    if (!tbody) return;
+
+    // --- Injecter les valeurs ligne par ligne ---
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    uniqueMatricules.forEach((matricule, idx) => {
+        if (idx >= rows.length) return; // pas assez de lignes disponibles
+
+        const tr = rows[idx];
+        const cells = tr.querySelectorAll('td');
+
+        const totalSec = matriculeSummary[matricule].totalSec;
+        const hours = String(Math.floor(totalSec / 3600)).padStart(2,'0');
+        const minutes = String(Math.floor((totalSec % 3600) / 60)).padStart(2,'0');
+        const seconds = String(totalSec % 60).padStart(2,'0');
+        const ttt = `${hours}:${minutes}:${seconds}`;
+        const volume = matriculeSummary[matricule].volume;
+
+        // --- Injection dans les colonnes correspondantes ---
+        if (cells[matriculeIndexRes]) cells[matriculeIndexRes].innerText = matricule;
+        if (cells[tttIndexRes]) cells[tttIndexRes].innerText = ttt;
+        if (cells[volumeIndexRes]) cells[volumeIndexRes].innerText = volume;
+
+        console.log(`Inject ligne ${idx+1}: MATRICULE=${matricule}, TTT=${ttt}, Volume=${volume}`);
+    });
+}
+
+
+
+
+
+
+
+
+
+
+//------------------- GESTION AFFICHAGE / MASQUAGE COLONNE---------------------->
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('resultTable');
+    
+    // Index (0-based) des colonnes "utiles"
+    const colonnesUtiles = [0, 2, 9, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 26];
+    
+    function afficherColonnesUtiles() {
+        const allRows = table.querySelectorAll('tr');
+        allRows.forEach(row => {
+            [...row.cells].forEach((cell, index) => {
+                if (!colonnesUtiles.includes(index)) {
+                    cell.style.display = 'none';
+                } else {
+                    cell.style.display = '';
+                }
+            });
+        });
+    }
+
+    function afficherToutesColonnes() {
+        const allRows = table.querySelectorAll('tr');
+        allRows.forEach(row => {
+            [...row.cells].forEach(cell => {
+                cell.style.display = '';
+            });
+        });
+    }
+
+    document.querySelectorAll('input[name="viewMode"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            if (this.value === 'utiles') {
+                afficherColonnesUtiles();
+            } else {
+                afficherToutesColonnes();
+            }
+        });
+    });
+});
+
+// AFFICHAGE SUMMARY EN BAS DE LA page
+function calculateConsensusStats() {
+    const rows = Array.from(document.querySelectorAll("#resultTable tbody tr"));
+
+    let a = 0, b = 0, c = 0, d = 0;
+    let okCount = 0, koCount = 0;
+    let zz = 0;       // traités
+    let hitIdCount = 0; // groupes valides
+
+    let okHitId = 0, koHitId = 0; // pour calcul accuracy hitid
+
+    const idxJuge = 17;         // colonne "Juge" (ajuster si différent)
+    const idxStatus = 23;       // colonne "Status assignement"
+    const idxCol24 = 24;        // Accord_Single
+    const idxCol25 = 25;        // Accord_Best
+    const idxStatusHitID = 26;  // colonne "Status HitID"
+
+    for (let i = 0; i < rows.length; i += 3) { // par pas de 3 lignes
+        const group = rows.slice(i, i + 3);
+        if (group.length === 0) continue;
+
+        // 1ère ligne du groupe
+        const firstRow = group[0];
+        const firstSelect = firstRow.querySelectorAll("td")[idxJuge]?.querySelector("select");
+        const firstValue = firstSelect ? firstSelect.value.trim() : firstRow.querySelectorAll("td")[idxJuge]?.textContent.trim();
+
+        if (firstValue !== "" && firstValue !== "--non jugé--") {
+            zz += group.length;
+            hitIdCount++;
+
+            // --- pour HitID ---
+            const statusHitID = group[0].querySelectorAll("td")[idxStatusHitID]?.textContent.trim() || "";
+            if (statusHitID === "OK") okHitId++;
+            else if (statusHitID === "KO") koHitId++;
+
+            group.forEach((row) => {
+                const cells = row.querySelectorAll("td");
+                const col24 = cells[idxCol24]?.textContent.trim() || "";
+                const col25 = cells[idxCol25]?.textContent.trim() || "";
+                const status = cells[idxStatus]?.textContent.trim() || "";
+
+                // compter toutes les occurrences
+                if (col24 === "Correct_Maj") a++;
+                if (col24 === "Incorrect_Maj") b++;
+                if (col24 === "Correct_Min") c++;
+                if (col24 === "Incorrect_Min") d++;
+
+                if (col25 === "Correct_Maj") a++;
+                if (col25 === "Incorrect_Maj") b++;
+                if (col25 === "Correct_Min") c++;
+                if (col25 === "Incorrect_Min") d++;
+
+                if (status === "OK") okCount++;
+                if (status === "KO") koCount++;
+            });
+        }
+    }
+
+    // Accuracy assignement et hitid
+    const accuracyAssign = (okCount + koCount > 0 ? (okCount / (okCount + koCount) * 100).toFixed(2) : "0.00");
+    const accuracyHitID = (okHitId + koHitId > 0 ? (okHitId / (okHitId + koHitId) * 100).toFixed(2) : "0.00");
+
+    // Calcul des pourcentages accords
+    const totalAccords = a + b + c + d;
+    const cMajPct = totalAccords > 0 ? (a / totalAccords * 100).toFixed(2) : "0.00";
+    const cMinPct = totalAccords > 0 ? (c / totalAccords * 100).toFixed(2) : "0.00";
+    const iMajPct = totalAccords > 0 ? (b / totalAccords * 100).toFixed(2) : "0.00";
+    const iMinPct = totalAccords > 0 ? (d / totalAccords * 100).toFixed(2) : "0.00";
+
+    // --- Résumé final ---
+    document.getElementById("consensusStats").innerHTML =
+    `Traités: <strong>${zz}</strong> Assignements | <strong>${hitIdCount}</strong> HitId<br>
+    c_maj: <strong>${cMajPct} %</strong> | c_min: <strong>${cMinPct} %</strong> | 
+    i_maj: <strong>${iMajPct} %</strong> | i_min: <strong>${iMinPct} %</strong><br>
+    accuracy assignement: <strong>${accuracyAssign} %</strong><br>
+    accuracy hitid: <strong>${accuracyHitID} %</strong>`;
+}
+
+
+
+// Ajouter l'event listener
+document.getElementById("btnConsensus").addEventListener("click", calculateConsensusStats);
+
+
+
+//CONFIRMATION SUPPRESSION LOCAL STORAGE
+document.getElementById('resetFileDataBtn').addEventListener('click', () => {
+    const fileName = localStorage.getItem('lastLuxembourgFileName');
+    if (!fileName) {
+        alert("Aucun fichier enregistré trouvé !");
+        return;
+    }
+
+    // Mettre le message dans la popup
+    document.getElementById('confirmMessage').textContent =
+        `Tout jugement effectué sur le fichier "${fileName}" sans être exporté sera perdu. Voulez-vous continuer ?`;
+
+    // Afficher la popup
+    document.getElementById('confirmOverlay').style.display = 'flex';
+
+    // Bouton OUI
+    document.getElementById('confirmYes').onclick = () => {
+        const keysToDelete = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(fileName)) {
+                keysToDelete.push(key);
+            }
+        }
+        keysToDelete.forEach(key => localStorage.removeItem(key));
+
+        alert(`✅ Les données liées au fichier "${fileName}" ont été supprimées (${keysToDelete.length} éléments).`);
+
+        // Fermer la popup
+        document.getElementById('confirmOverlay').style.display = 'none';
+
+        // Rafraîchir la page
+        location.reload();
+    };
+
+    // Bouton Annuler
+    document.getElementById('confirmNo').onclick = () => {
+        // Fermer la popup sans rien faire
+        document.getElementById('confirmOverlay').style.display = 'none';
+    };
+});
+
+//SPECIAL POUR FICHIER EXCEL
+function excelTimeToHHMMSS(excelNum) {
+    if (excelNum == null || excelNum === "") return "";
+    
+    let num = parseFloat(excelNum.toString().replace(",", "."));
+    if (isNaN(num)) return "";
+
+    let totalSeconds = Math.round(num * 86400);
+    let hours = Math.floor(totalSeconds / 3600);
+    let minutes = Math.floor((totalSeconds % 3600) / 60);
+    let seconds = totalSeconds % 60;
+
+    return [
+        hours.toString().padStart(2, "0"),
+        minutes.toString().padStart(2, "0"),
+        seconds.toString().padStart(2, "0")
+    ].join(":");
+}
+
+</script>
+
+</body>
+
+</html>

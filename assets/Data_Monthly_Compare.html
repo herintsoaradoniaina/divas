@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparaison des Rapports Mensuels</title>
+	<link rel="stylesheet" href="styles.css">
+    <style>/* Style de la table */
+	
+th, td {
+    padding: 10px;
+    text-align: center;
+    font-size: 14px; /* Taille du texte */
+    border: 1px solid black; /* Bordure noire pour toutes les cellules et les en-têtes */
+}
+
+/* Style des en-têtes de table */
+thead th {
+    background-color: black; /* Fond des en-têtes en noir */
+    color: white; /* Texte des en-têtes en blanc */
+    font-weight: bold; /* Texte en gras pour les en-têtes */
+}
+
+/* Style des cellules de la table */
+tbody tr:nth-child(even) {
+    background-color: #f9f9f9; /* Alternance de couleur de fond pour les lignes paires */
+}
+
+/* Masquer les tableaux des résultats */
+#resultTable_M_1, #resultTable_M {
+    display: none;
+}
+
+/* Style du conteneur des boutons */
+.button-container {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+
+/* Style des notifications */
+.notification {
+    position: fixed;
+    top: 55px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #4caf50;
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    display: none;
+    z-index: 1000;
+    font-size: 18px;
+    text-align: center;
+}
+
+/* Style général des tables */
+table {
+    border-collapse: collapse; /* Fusionne les bordures pour une meilleure apparence */
+    width: 100%; /* La table prend toute la largeur disponible */
+    margin-bottom: 20px; /* Espace en dessous de chaque table */
+}
+
+/* Style pour les tableaux côte à côte */
+#tabila {
+    display: flex;
+    justify-content: space-between; /* Ajoute un espace égal entre les tableaux */
+    gap: 20px; /* Espace entre les tableaux */
+}
+
+#tableau_comparatif_consensus_wid, #tableau_difference_consensus_wid {
+    flex: 1; /* Chaque tableau prend une largeur égale */
+    overflow-x: auto; /* Permet le défilement horizontal si nécessaire */
+}
+
+#tableau_comparatif_consensus_attribut, #tableau_difference_consensus_attribut {
+    width: 48%; /* Ajustez la largeur selon vos besoins */
+}
+
+.hidden {
+    display: none;
+}
+</style>
+    <script src="papaparse_rado.js"></script>
+	
+</head>
+
+<body>
+	<h2 align="center">Data Monthly Comparator</h2>
+    <div class="button-container">
+    <button id="loadCSVButton_M_1">Charger Fichier M-1</button>
+    <label id="fileLabel_M_1"></label> <!-- Label pour afficher le nom du fichier M-1 -->
+    
+    <button id="loadCSVButton_M">Charger Fichier M</button>
+    <label id="fileLabel_M"></label> <!-- Label pour afficher le nom du fichier M -->
+    
+    <button id="generateResultsButton">Comparatif Consensus WorkerID</button>
+	<button id="generateComparisonButton">Comparatif Consensus Attribut</button>
+
+    
+    <table id="resultTable_M_1"></table>
+    <table id="resultTable_M"></table>
+</div>
+
+<div id="tabila">
+    <table id="tableau_comparatif_consensus_wid"></table>
+    <table id="tableau_difference_consensus_wid"></table>
+	<table id="tableau_comparatif_consensus_attribut"></table>
+	<table id="tableau_difference_consensus_attribut"></table>
+</div>
+
+<div id="notification" class="notification"></div>
+	<script>
+	
+// Function to process CSV data and create table for M (MOIS EN COURS)
+function processData_M_1(data) {
+    Papa.parse(data, {
+        header: true,
+        delimiter: '\t',
+        skipEmptyLines: true,
+        preview: 500000,
+        complete: function (results) {
+            const parsedData = results.data;
+            const necessaryHeaders = ['hitid', 'workerid', 'key', 'assin_json', 'assin_juge_json'];
+            console.log(results.data);
+            console.log(results.errors);
+
+            const headersFromData = results.meta.fields.map(header => header.trim().toLowerCase());
+            const normalizedNecessaryHeaders = necessaryHeaders.map(header => header.trim().toLowerCase());
+            const headersPresent = normalizedNecessaryHeaders.every(header => headersFromData.includes(header));
+
+            if (!headersPresent) {
+                console.error('Headers found:', headersFromData);
+                console.error('Expected headers:', normalizedNecessaryHeaders);
+                alert('Les entêtes nécessaires ne sont pas toutes présentes.');
+                return;
+            }
+
+            // Store invalid JSON rows
+            const invalidJsonRows = [];
+            const invalidJson = parsedData.some(row => {
+                try {
+                    JSON.parse(row.assin_json);
+                    JSON.parse(row.assin_juge_json);
+                    return false;
+                } catch {
+                    invalidJsonRows.push(row); // Collect invalid rows
+                    return true;
+                }
+            });
+
+            if (invalidJson) {
+                console.error('Invalid JSON data:', invalidJsonRows);
+                alert('Certaines données JSON sont invalides.');
+                return;
+            }
+
+            const resultTable_M_1 = document.getElementById('resultTable_M_1');
+            resultTable_M_1.innerHTML = '';
+
+            const caption = resultTable_M_1.createCaption();
+            caption.textContent = 'ANALYSE GLOBAL DES RESULTATS VENANT DE LOOKERS STUDIO';
+
+            const headers = necessaryHeaders.concat(['smarter', 'juge']);
+            const headerRow = resultTable_M_1.insertRow();
+
+            headers.forEach(header => {
+                const cell = document.createElement('th');
+                cell.textContent = header;
+                headerRow.appendChild(cell);
+            });
+
+            const uniqueKeys = new Set();
+            parsedData.forEach(row => {
+                const assinJson = JSON.parse(row.assin_json);
+                const jugeJson = JSON.parse(row.assin_juge_json);
+
+                Object.keys(assinJson).forEach(key => {
+                    if (key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on') uniqueKeys.add(key);
+                });
+                Object.keys(jugeJson).forEach(key => {
+                    if (key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on') uniqueKeys.add(key);
+                });
+
+                row.smarter = Object.keys(assinJson)
+                    .filter(key => assinJson[key] && key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on')
+                    .join(', ');
+                row.juge = Object.keys(jugeJson)
+                    .filter(key => jugeJson[key] && key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on')
+                    .join(', ');
+            });
+
+            uniqueKeys.forEach(key => {
+                const cell = document.createElement('th');
+                cell.textContent = key;
+                headerRow.appendChild(cell);
+            });
+
+            const asinJudgmentHeader = document.createElement('th');
+            asinJudgmentHeader.textContent = 'Jugement ASIN';
+            headerRow.appendChild(asinJudgmentHeader);
+
+            const assignmentJudgmentHeader = document.createElement('th');
+            assignmentJudgmentHeader.textContent = 'Jugement Assignement';
+            headerRow.appendChild(assignmentJudgmentHeader);
+
+            parsedData.forEach(row => {
+                const rowElement = resultTable_M_1.insertRow();
+                headers.forEach(header => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = row[header] || '';
+                });
+
+                uniqueKeys.forEach(key => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = '';
+                });
+
+                const asinJudgmentCell = rowElement.insertCell();
+                asinJudgmentCell.textContent = '';
+
+                const assignmentJudgmentCell = rowElement.insertCell();
+                assignmentJudgmentCell.textContent = ''; // Cette cellule restera vide
+            });
+
+            const groupedByKey = parsedData.reduce((acc, row, index) => {
+                if (!acc[row.key]) acc[row.key] = [];
+                row.index = index;
+                acc[row.key].push(row);
+                return acc;
+            }, {});
+
+            Object.keys(groupedByKey).forEach(key => {
+                const group = groupedByKey[key];
+                const totalRows = group.length;
+
+                const smarterCounts = {};
+                const jugeCounts = {};
+
+                group.forEach(row => {
+                    row.smarter.split(', ').forEach(attr => {
+                        if (attr) smarterCounts[attr] = (smarterCounts[attr] || 0) + 1;
+                    });
+                    row.juge.split(', ').forEach(attr => {
+                        if (attr) jugeCounts[attr] = (jugeCounts[attr] || 0) + 1;
+                    });
+                });
+
+                group.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable_M_1.rows[rowIndex + 1];
+
+                    uniqueKeys.forEach(attr => {
+                        let cellValue = '';
+                        const smarterHasAttr = row.smarter.includes(attr);
+                        const jugeHasAttr = row.juge.includes(attr);
+                        const countSmarterCorrect = group.filter(r => r.smarter.includes(attr) && r.juge.includes(attr)).length;
+                        const countSmarterIncorrect = group.filter(r => r.smarter.includes(attr) && !r.juge.includes(attr)).length;
+                        const countMissing = group.filter(r => !r.smarter.includes(attr) && r.juge.includes(attr)).length;
+
+                        if (smarterHasAttr && jugeHasAttr) {
+                            cellValue = countSmarterCorrect >= totalRows / 2 ? 'c_maj' : 'c_min';
+                        } else if (smarterHasAttr && !jugeHasAttr) {
+                            cellValue = countSmarterIncorrect >= totalRows / 2 ? 'i_maj' : 'i_min';
+                        } else if (!smarterHasAttr && jugeHasAttr) {
+                            cellValue = countMissing >= totalRows / 2 ? 'missing_maj' : 'missing_min';
+                        }
+
+                        const cell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === attr)];
+                        if (cell) {
+                            cell.textContent = cellValue;
+                        }
+                    });
+
+                    const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                    const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                    const cellValues = Array.from(rowElement.cells).slice(headers.length, headers.length + uniqueKeys.size).map(cell => cell.textContent);
+
+                    if (cellValues.includes('i_min') || cellValues.includes('i_maj') || cellValues.includes('missing_min') || cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ko';
+                    } else if ((cellValues.includes('c_min') || cellValues.includes('c_maj')) &&
+                        !cellValues.includes('i_min') && !cellValues.includes('i_maj') &&
+                        !cellValues.includes('missing_min') && !cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ok';
+                    }
+                });
+            });
+			
+			
+			// Show the notification when processing is complete
+            showNotification('Traitement terminé, fichier M-1 prêt....');
+			document.getElementById('fileLabel_M_1').innerText = "Fichier M-1 Chargé...";
+
+			
+        }
+    });
+}
+
+
+// Function to process CSV data and create table for M (MOIS EN COURS)
+        function processData_M(data) {
+            Papa.parse(data, {
+                header: true,
+                delimiter: '\t',
+                skipEmptyLines: true,
+                preview: 500000,
+                complete: function (results) {
+                    const parsedData = results.data;
+                    const necessaryHeaders = ['hitid', 'workerid', 'key', 'assin_json', 'assin_juge_json'];
+                    console.log(results.data);
+                    console.log(results.errors);
+
+                    const headersFromData = results.meta.fields.map(header => header.trim().toLowerCase());
+                    const normalizedNecessaryHeaders = necessaryHeaders.map(header => header.trim().toLowerCase());
+                    const headersPresent = normalizedNecessaryHeaders.every(header => headersFromData.includes(header));
+
+                    if (!headersPresent) {
+                        console.error('Headers found:', headersFromData);
+                        console.error('Expected headers:', normalizedNecessaryHeaders);
+                        alert('Les entêtes nécessaires ne sont pas toutes présentes.');
+                        return;
+                    }
+
+                    // Store invalid JSON rows
+                    const invalidJsonRows = [];
+                    const invalidJson = parsedData.some(row => {
+                        try {
+                            JSON.parse(row.assin_json);
+                            JSON.parse(row.assin_juge_json);
+                            return false;
+                        } catch {
+                            invalidJsonRows.push(row); // Collect invalid rows
+                            return true;
+                        }
+                    });
+
+                    if (invalidJson) {
+                        console.error('Invalid JSON data:', invalidJsonRows);
+                        alert('Certaines données JSON sont invalides.');
+                        return;
+                    }
+
+                    const resultTable_M = document.getElementById('resultTable_M');
+                    resultTable_M.innerHTML = '';
+
+                    const caption = resultTable_M.createCaption();
+                    caption.textContent = 'ANALYSE GLOBAL DES RESULTATS VENANT DE LOOKERS STUDIO - M';
+
+                    const headers = necessaryHeaders.concat(['smarter', 'juge']);
+                    const headerRow = resultTable_M.insertRow();
+
+                    headers.forEach(header => {
+                        const cell = document.createElement('th');
+                        cell.textContent = header;
+                        headerRow.appendChild(cell);
+                    });
+
+                    const uniqueKeys = new Set();
+                    parsedData.forEach(row => {
+                        const assinJson = JSON.parse(row.assin_json);
+                        const jugeJson = JSON.parse(row.assin_juge_json);
+
+                        Object.keys(assinJson).forEach(key => {
+                            if (key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on') uniqueKeys.add(key);
+                        });
+                        Object.keys(jugeJson).forEach(key => {
+                            if (key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on') uniqueKeys.add(key);
+                        });
+
+                        row.smarter = Object.keys(assinJson)
+                            .filter(key => assinJson[key] && key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on')
+                            .join(', ');
+                        row.juge = Object.keys(jugeJson)
+                            .filter(key => jugeJson[key] && key !== 'purchase_availability' && key !== 'link_clicked' && key !== 'on')
+                            .join(', ');
+                    });
+
+                    uniqueKeys.forEach(key => {
+                        const cell = document.createElement('th');
+                        cell.textContent = key;
+                        headerRow.appendChild(cell);
+                    });
+
+                    const asinJudgmentHeader = document.createElement('th');
+                    asinJudgmentHeader.textContent = 'Jugement ASIN';
+                    headerRow.appendChild(asinJudgmentHeader);
+
+                    const assignmentJudgmentHeader = document.createElement('th');
+                    assignmentJudgmentHeader.textContent = 'Jugement Assignement';
+                    headerRow.appendChild(assignmentJudgmentHeader);
+
+                    parsedData.forEach(row => {
+                        const rowElement = resultTable_M.insertRow();
+                        headers.forEach(header => {
+                            const cell = rowElement.insertCell();
+                            cell.textContent = row[header] || '';
+                        });
+
+                        uniqueKeys.forEach(key => {
+                            const cell = rowElement.insertCell();
+                            cell.textContent = '';
+                        });
+
+                        const asinJudgmentCell = rowElement.insertCell();
+                        asinJudgmentCell.textContent = '';
+
+                        const assignmentJudgmentCell = rowElement.insertCell();
+                        assignmentJudgmentCell.textContent = ''; // Cette cellule restera vide
+                    });
+
+                    const groupedByKey = parsedData.reduce((acc, row, index) => {
+                        if (!acc[row.key]) acc[row.key] = [];
+                        row.index = index;
+                        acc[row.key].push(row);
+                        return acc;
+                    }, {});
+
+                    Object.keys(groupedByKey).forEach(key => {
+                        const group = groupedByKey[key];
+                        const totalRows = group.length;
+
+                        const smarterCounts = {};
+                        const jugeCounts = {};
+
+                        group.forEach(row => {
+                            row.smarter.split(', ').forEach(attr => {
+                                if (attr) smarterCounts[attr] = (smarterCounts[attr] || 0) + 1;
+                            });
+                            row.juge.split(', ').forEach(attr => {
+                                if (attr) jugeCounts[attr] = (jugeCounts[attr] || 0) + 1;
+                            });
+                        });
+
+                        group.forEach(row => {
+                            const rowIndex = row.index;
+                            const rowElement = resultTable_M.rows[rowIndex + 1];
+
+                            uniqueKeys.forEach(attr => {
+                                let cellValue = '';
+                                const smarterHasAttr = row.smarter.includes(attr);
+                                const jugeHasAttr = row.juge.includes(attr);
+                                const countSmarterCorrect = group.filter(r => r.smarter.includes(attr) && r.juge.includes(attr)).length;
+                                const countSmarterIncorrect = group.filter(r => r.smarter.includes(attr) && !r.juge.includes(attr)).length;
+                                const countMissing = group.filter(r => !r.smarter.includes(attr) && r.juge.includes(attr)).length;
+
+                                if (smarterHasAttr && jugeHasAttr) {
+                                    cellValue = countSmarterCorrect >= totalRows / 2 ? 'c_maj' : 'c_min';
+                                } else if (smarterHasAttr && !jugeHasAttr) {
+                                    cellValue = countSmarterIncorrect >= totalRows / 2 ? 'i_maj' : 'i_min';
+                                } else if (!smarterHasAttr && jugeHasAttr) {
+                                    cellValue = countMissing >= totalRows / 2 ? 'missing_maj' : 'missing_min';
+                                }
+
+                                const cell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === attr)];
+                                if (cell) {
+                                    cell.textContent = cellValue;
+                                }
+                            });
+
+                            const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                            const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                            const cellValues = Array.from(rowElement.cells).slice(headers.length, headers.length + uniqueKeys.size).map(cell => cell.textContent);
+
+                            if (cellValues.includes('i_min') || cellValues.includes('i_maj') || cellValues.includes('missing_min') || cellValues.includes('missing_maj')) {
+                                asinJudgmentCell.textContent = 'ko';
+                            } else if ((cellValues.includes('c_min') || cellValues.includes('c_maj')) &&
+                                !cellValues.includes('i_min') && !cellValues.includes('i_maj') &&
+                                !cellValues.includes('missing_min') && !cellValues.includes('missing_maj')) {
+                                asinJudgmentCell.textContent = 'ok';
+                            }
+                        });
+                    });
+
+                    // Show the notification when processing is complete
+                    showNotification('Traitement terminé, fichier M prêt...');
+					document.getElementById('fileLabel_M').innerText = "Fichier M Chargée...";
+
+                }
+            });
+        }
+
+
+
+
+// Function to handle button click and file input
+        document.getElementById('loadCSVButton_M_1').addEventListener('click', function () {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.tsv';
+            fileInput.style.display = 'none';
+
+            fileInput.addEventListener('change', function () {
+                const file = fileInput.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        processData_M_1(e.target.result);
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('Veuillez sélectionner un fichier CSV.');
+                }
+            });
+
+            document.body.appendChild(fileInput);
+            fileInput.click();
+        });
+
+// Function to handle button click and file input for M
+        document.getElementById('loadCSVButton_M').addEventListener('click', function () {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.tsv';
+            fileInput.style.display = 'none';
+
+            fileInput.addEventListener('change', function () {
+                const file = fileInput.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        processData_M(e.target.result);
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('Veuillez sélectionner un fichier CSV.');
+                }
+            });
+
+            document.body.appendChild(fileInput);
+            fileInput.click();
+        });
+
+//Function show notification resultTable_M_1 crée
+	function showNotification(message) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.style.display = 'block';
+
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 5000); // Hide after 5 seconds
+}
+       
+	   
+	   
+document.getElementById('generateResultsButton').addEventListener('click', function() {
+    // Calculer les données pour M-1 et M
+    const m1Data = calculateConsensusForTable('resultTable_M_1');
+    const mData = calculateConsensusForTable('resultTable_M');
+
+    // Générer le tableau comparatif
+    generateComparisonTable(m1Data, mData);
+
+    // Générer le tableau des différences
+    generateDifferenceTable(m1Data, mData);
+});
+
+
+// Fonction pour calculer le consensus pour une table donnée
+function calculateConsensusForTable(tableId) {
+    const resultTable = document.getElementById(tableId); // Récupère la table par son ID
+    if (!resultTable) return {}; // Retourne un objet vide si la table n'existe pas
+
+    const headers = Array.from(resultTable.querySelectorAll('th')).map(th => th.innerText.trim()); // Récupère les en-têtes de colonne
+    const workeridIndex = headers.indexOf('workerid'); // Index de la colonne `workerid`
+    if (workeridIndex === -1) return {}; // Retourne un objet vide si la colonne `workerid` n'existe pas
+
+    const data = Array.from(resultTable.querySelectorAll('tbody tr')).map(row => {
+        const cells = Array.from(row.querySelectorAll('td')); // Récupère toutes les cellules d'une ligne
+        const workerid = cells[workeridIndex]?.innerText.trim(); // Récupère le `workerid` de la ligne
+
+        if (!workerid) return null; // Ignore la ligne si `workerid` est vide ou non défini
+
+        let rowData = { workerid, c_maj: 0, c_min: 0, i_maj: 0, i_min: 0 }; // Initialise les compteurs de consensus
+
+        // Parcourt chaque colonne et met à jour les compteurs en fonction de la valeur de la cellule
+        headers.forEach((header, index) => {
+            const cellValue = cells[index]?.innerText.trim();
+            if (cellValue === 'c_maj') rowData.c_maj++;
+            else if (cellValue === 'c_min') rowData.c_min++;
+            else if (cellValue === 'i_maj' || cellValue === 'missing_maj') rowData.i_maj++;
+            else if (cellValue === 'i_min' || cellValue === 'missing_min') rowData.i_min++;
+        });
+        return rowData; // Retourne les données de la ligne
+    }).filter(row => row !== null); // Filtre les lignes nulles (celles avec `workerid` vide)
+
+    // Agrège les données par workerid
+    return data.reduce((acc, row) => {
+        if (!acc[row.workerid]) {
+            acc[row.workerid] = { c_maj: 0, c_min: 0, i_maj: 0, i_min: 0, total: 0 }; // Initialise les compteurs si le workerid est nouveau
+        }
+        acc[row.workerid].c_maj += row.c_maj;
+        acc[row.workerid].c_min += row.c_min;
+        acc[row.workerid].i_maj += row.i_maj;
+        acc[row.workerid].i_min += row.i_min;
+        acc[row.workerid].total += row.c_maj + row.c_min + row.i_maj + row.i_min;
+        return acc; // Retourne l'accumulateur
+    }, {});
+}
+
+
+// Fonction pour générer la table de comparaison des données entre M-1 et M
+function generateComparisonTable(m1Data, mData) {
+    const table = document.getElementById('tableau_comparatif_consensus_wid');
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th rowspan="2">workerid</th>
+                <th colspan="2">Correct Majority</th>
+                <th colspan="2">Correct Minority</th>
+                <th colspan="2">Incorrect Majority</th>
+                <th colspan="2">Incorrect Minority</th>
+            </tr>
+            <tr>
+                <th>M-1</th>
+                <th>M</th>
+                <th>M-1</th>
+                <th>M</th>
+                <th>M-1</th>
+                <th>M</th>
+                <th>M-1</th>
+                <th>M</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector('tbody');
+
+    // Récupère tous les workerid présents dans M-1 et M
+    const allWorkerIds = new Set([...Object.keys(m1Data), ...Object.keys(mData)]);
+
+    // Pour chaque workerid, génère une ligne dans le tableau de comparaison
+    allWorkerIds.forEach(workerid => {
+        const m1 = m1Data[workerid] || { c_maj: 0, c_min: 0, i_maj: 0, i_min: 0, total: 0 }; // Données de M-1 ou valeurs par défaut
+        const m = mData[workerid] || { c_maj: 0, c_min: 0, i_maj: 0, i_min: 0, total: 0 }; // Données de M ou valeurs par défaut
+        const row = document.createElement('tr');
+
+        // Remplit les cellules avec les pourcentages ou laisse vide si pas de données
+        row.innerHTML = `
+            <td>${workerid}</td>
+            <td>${m1.total ? ((m1.c_maj / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.c_maj / m.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total ? ((m1.c_min / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.c_min / m.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total ? ((m1.i_maj / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.i_maj / m.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total ? ((m1.i_min / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.i_min / m.total) * 100).toFixed(2) + '%' : ''}</td>
+        `;
+        tbody.appendChild(row); // Ajoute la ligne au tableau
+    });
+}
+
+
+// Fonction pour générer la table des différences entre M-1 et M
+function generateDifferenceTable(m1Data, mData) {
+    const table = document.getElementById('tableau_difference_consensus_wid');
+    table.innerHTML = '<tr><th>workerid</th><th>Correct Majority</th><th>Correct Minority</th><th>Incorrect Majority</th><th>Incorrect Minority</th></tr>';
+
+    const allWorkerIds = new Set([...Object.keys(m1Data), ...Object.keys(mData)]);
+
+    allWorkerIds.forEach(workerid => {
+        const m1 = m1Data[workerid] || { c_maj: 0, c_min: 0, i_maj: 0, i_min: 0, total: 0 };
+        const m = mData[workerid] || { c_maj: 0, c_min: 0, i_maj: 0, i_min: 0, total: 0 };
+        const row = document.createElement('tr');
+
+        // Calcule les différences de pourcentages ou laisse vide si pas de données
+        row.innerHTML = `
+            <td>${workerid}</td>
+            <td>${m1.total && m.total ? (((m.c_maj / m.total) - (m1.c_maj / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total && m.total ? (((m.c_min / m.total) - (m1.c_min / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total && m.total ? (((m.i_maj / m.total) - (m1.i_maj / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total && m.total ? (((m.i_min / m.total) - (m1.i_min / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+        `;
+        table.appendChild(row);
+    });
+}
+
+// Fonction pour afficher le nom du fichier chargé après le bouton de chargement
+function showFileName(inputElement, labelElementId) {
+    const labelElement = document.getElementById(labelElementId);
+    if (inputElement.files.length > 0) {
+        labelElement.innerText = `Fichier chargé : ${inputElement.files[0].name}`; // Affiche le nom du fichier
+    } else {
+        labelElement.innerText = ''; // Vide le texte si aucun fichier n'est sélectionné
+    }
+}
+
+
+function calculateAttributeConsensus(tableId) {
+    const resultTable = document.getElementById(tableId);
+    if (!resultTable) return {};
+
+    const headers = Array.from(resultTable.querySelectorAll('th')).map(th => th.innerText.trim());
+    const jugeIndex = headers.indexOf('juge');
+    const attributeColumns = headers.slice(jugeIndex + 1).filter(col => col !== 'Jugement ASIN' && col !== 'Jugement Assignement' && col !== 'Jugement HitId');
+
+    if (jugeIndex === -1) {
+        console.error('Colonne "juge" non trouvée');
+        return {};
+    }
+
+    const attributes = {};
+    attributeColumns.forEach(attr => {
+        attributes[attr] = {
+            correctMajority: 0,
+            correctMinority: 0,
+            incorrectMajority: 0,
+            incorrectMinority: 0,
+            total: 0
+        };
+    });
+
+    for (let i = 1; i < resultTable.rows.length; i++) {
+        const row = resultTable.rows[i];
+        const cellValues = row.cells;
+
+        attributeColumns.forEach((attr, index) => {
+            const cellIndex = jugeIndex + 1 + index;
+            if (cellIndex < cellValues.length) {
+                const value = cellValues[cellIndex].textContent.trim();
+                attributes[attr].total++;
+
+                if (value === 'c_maj') {
+                    attributes[attr].correctMajority++;
+                } else if (value === 'c_min') {
+                    attributes[attr].correctMinority++;
+                } else if (value === 'i_maj' || value === 'missing_maj') {
+                    attributes[attr].incorrectMajority++;
+                } else if (value === 'i_min' || value === 'missing_min') {
+                    attributes[attr].incorrectMinority++;
+                }
+            }
+        });
+    }
+
+    return attributes;
+}
+
+function generateAttributeComparisonTable(m1Attributes, mAttributes) {
+    const table = document.getElementById('tableau_comparatif_consensus_attribut');
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th rowspan="2">Attribut</th>
+                <th colspan="2">Correct Majority</th>
+                <th colspan="2">Correct Minority</th>
+                <th colspan="2">Incorrect Majority</th>
+                <th colspan="2">Incorrect Minority</th>
+            </tr>
+            <tr>
+                <th>M-1</th>
+                <th>M</th>
+                <th>M-1</th>
+                <th>M</th>
+                <th>M-1</th>
+                <th>M</th>
+                <th>M-1</th>
+                <th>M</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector('tbody');
+    const allAttributes = new Set([...Object.keys(m1Attributes), ...Object.keys(mAttributes)]);
+
+    allAttributes.forEach(attr => {
+        const m1 = m1Attributes[attr] || { correctMajority: 0, correctMinority: 0, incorrectMajority: 0, incorrectMinority: 0, total: 0 };
+        const m = mAttributes[attr] || { correctMajority: 0, correctMinority: 0, incorrectMajority: 0, incorrectMinority: 0, total: 0 };
+        const row = document.createElement('tr');
+
+        row.innerHTML = `
+            <td>${attr}</td>
+            <td>${m1.total ? ((m1.correctMajority / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.correctMajority / m.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total ? ((m1.correctMinority / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.correctMinority / m.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total ? ((m1.incorrectMajority / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.incorrectMajority / m.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m1.total ? ((m1.incorrectMinority / m1.total) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total ? ((m.incorrectMinority / m.total) * 100).toFixed(2) + '%' : ''}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function generateAttributeDifferenceTable(m1Attributes, mAttributes) {
+    const table = document.getElementById('tableau_difference_consensus_attribut');
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Attribut</th>
+                <th>Correct Majority</th>
+                <th>Correct Minority</th>
+                <th>Incorrect Majority</th>
+                <th>Incorrect Minority</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+
+    const tbody = table.querySelector('tbody');
+    const allAttributes = new Set([...Object.keys(m1Attributes), ...Object.keys(mAttributes)]);
+
+    allAttributes.forEach(attr => {
+        const m1 = m1Attributes[attr] || { correctMajority: 0, correctMinority: 0, incorrectMajority: 0, incorrectMinority: 0, total: 0 };
+        const m = mAttributes[attr] || { correctMajority: 0, correctMinority: 0, incorrectMajority: 0, incorrectMinority: 0, total: 0 };
+        const row = document.createElement('tr');
+
+        row.innerHTML = `
+            <td>${attr}</td>
+            <td>${m.total && m1.total ? (((m.correctMajority / m.total) - (m1.correctMajority / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total && m1.total ? (((m.correctMinority / m.total) - (m1.correctMinority / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total && m1.total ? (((m.incorrectMajority / m.total) - (m1.incorrectMajority / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+            <td>${m.total && m1.total ? (((m.incorrectMinority / m.total) - (m1.incorrectMinority / m1.total)) * 100).toFixed(2) + '%' : ''}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function generateComparisonAndDifference() {
+    const m1Attributes = calculateAttributeConsensus('resultTable_M_1');
+    const mAttributes = calculateAttributeConsensus('resultTable_M');
+
+    generateAttributeComparisonTable(m1Attributes, mAttributes);
+    generateAttributeDifferenceTable(m1Attributes, mAttributes);
+}
+
+document.getElementById('generateComparisonButton').addEventListener('click', generateComparisonAndDifference);
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    const generateComparisonButton = document.getElementById('generateComparisonButton');
+    const generateResultsButton = document.getElementById('generateResultsButton');
+
+    const tabila = document.getElementById('tabila');
+
+    function showTables(tableIds) {
+        tableIds.forEach(id => {
+            const table = document.getElementById(id);
+            if (table) {
+                table.classList.remove('hidden');
+            }
+        });
+    }
+
+    function hideTables(tableIds) {
+        tableIds.forEach(id => {
+            const table = document.getElementById(id);
+            if (table) {
+                table.classList.add('hidden');
+            }
+        });
+    }
+
+    generateComparisonButton.addEventListener('click', () => {
+        hideTables([
+            'tableau_comparatif_consensus_wid',
+            'tableau_difference_consensus_wid',
+            'tableau_comparatif_consensus_attribut',
+            'tableau_difference_consensus_attribut'
+        ]);
+        showTables([
+            'tableau_comparatif_consensus_attribut',
+            'tableau_difference_consensus_attribut'
+        ]);
+    });
+
+    generateResultsButton.addEventListener('click', () => {
+        hideTables([
+            'tableau_comparatif_consensus_wid',
+            'tableau_difference_consensus_wid',
+            'tableau_comparatif_consensus_attribut',
+            'tableau_difference_consensus_attribut'
+        ]);
+        showTables([
+            'tableau_comparatif_consensus_wid',
+            'tableau_difference_consensus_wid'
+        ]);
+    });
+
+    // Initialement, masquer tous les tableaux
+    hideTables([
+        'tableau_comparatif_consensus_wid',
+        'tableau_difference_consensus_wid',
+        'tableau_comparatif_consensus_attribut',
+        'tableau_difference_consensus_attribut'
+    ]);
+});
+
+// Fonction pour copier le contenu d'une table dans le presse-papiers
+async function copyTableToClipboard(table) {
+    if (!table) {
+        console.error('Table non trouvée.');
+        return;
+    }
+
+    // Vérifier si la table est vide
+    if (!table.innerText.trim()) {
+        alert('Table vide');
+        return;
+    }
+
+    try {
+        // Obtenir le contenu de la table
+        const tableText = table.innerText;
+
+        // Copier le contenu dans le presse-papiers en utilisant l'API Clipboard
+        await navigator.clipboard.writeText(tableText);
+
+        // Obtenir l'ID de la table
+        const tableId = table.id || 'sans ID';
+
+        // Afficher une notification pour l'utilisateur avec l'ID de la table
+        alert(`Table ${tableId} copiée dans le presse-papiers!`);
+    } catch (err) {
+        console.error('Erreur lors de la copie dans le presse-papiers:', err);
+    }
+}
+
+// Ajouter l'événement click pour copier une table
+document.querySelectorAll('table').forEach(table => {
+    table.onclick = () => {
+        copyTableToClipboard(table);
+    };
+});
+
+	</script>
+</body>
+
+</html>

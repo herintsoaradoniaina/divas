@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Performance and Error Report</title>
+    <script src="papaparse_rado.js"></script>
+    <link rel="stylesheet" href="performanceworker.css"> <!-- Lien vers le fichier CSS -->
+	<style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 30px; /* Espace entre les tables */
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+		
+		 #resultstable {
+			display: none;
+		  }
+			.notification {
+		position: fixed;
+		top: 55px; /* Positionné à 55px du haut de la page */
+		left: 50%; /* Centré horizontalement */
+		transform: translateX(-50%); /* Ajuste le centre pour la largeur du message */
+		background-color: #4caf50;
+		color: white;
+		padding: 10px;
+		border-radius: 5px;
+		display: none; /* Caché par défaut */
+		z-index: 1000; /* Assure qu'il est au-dessus des autres éléments */
+		font-size: 18px; /* Ajuste la taille du texte si nécessaire */
+		font-size bold: true
+		text-align: center; /* Centre le texte à l'intérieur du message */
+	  }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 align="center">Worker Performance and Error Report</h1>
+		<div id="controls">
+        <input type="file" id="csvFileInput" accept=".tsv" />
+			<button onclick="executeAllFunctions()">GENERATE 10 TOPS</button>
+        </div>
+    </header>
+	<div id="notification" class="notification">
+		Traitement terminé ! La table "resultTable" a été créée.
+	</div>
+	<table id="resultsTopCMaj"></table>
+	<table id="resultsTopCMin"></table>
+	<table id="resultsTopIMaj"></table>
+	<table id="resultsTopIMin"></table>
+    <table id="resultstable"></table>
+    <script>
+		//SCRIPT POUR LE TOP WORKER ET LOW PERFORMANCE PAGE
+		//SCRIPT POUR AVOIR LE DONNEES GLOBALE POUR LE CALCUL
+        document.getElementById('csvFileInput').addEventListener('change', handleFileSelect, false);
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            Papa.parse(file, {
+                header: true,
+                delimiter: '\t', // Délimiteur de tabulation
+                skipEmptyLines: true,
+                preview: 500000, // Augmentez le nombre de lignes prévisualisées si nécessaire
+                dynamicTyping: true,
+                complete: function(results) {
+                    const data = results.data;
+                    const headers = results.meta.fields;
+                    const requiredHeaders = ["hitid", "AssignmentId", "workerid", "Input.imageURL", "Input.bbox", "Input.content", "Answer.output_data", "amazon.image", "Market place", "Input.matches", "key", "assin_json", "assin_juge_json"];
+
+                    // Vérifier si toutes les en-têtes requises sont présentes
+                    if (!requiredHeaders.every(header => headers.includes(header))) {
+                        alert('CSV file is missing required headers.');
+                        return;
+                    }
+
+                    // Créer une liste d'attributs uniques
+                    let uniqueAttributes = new Set();
+                    data.forEach(row => {
+                        const assinJsonAttrs = row.assin_json ? row.assin_json.split(',').map(attr => attr.trim()) : [];
+                        const assinJugeJsonAttrs = row.assin_juge_json ? row.assin_juge_json.split(',').map(attr => attr.trim()) : [];
+                        assinJsonAttrs.forEach(attr => uniqueAttributes.add(attr));
+                        assinJugeJsonAttrs.forEach(attr => uniqueAttributes.add(attr));
+                    });
+
+                    uniqueAttributes = Array.from(uniqueAttributes).filter(attr => attr !== '');
+
+                    // Reproduire le tableau original et ajouter les colonnes d'attributs
+                    const table = document.getElementById('resultstable');
+                    table.innerHTML = ''; // Vider le tableau précédent
+					// Add a title to the table
+					const caption = table.createCaption();
+					caption.textContent = 'EVALUATION OF SMARTER RESPONSES FOR EACH PROCESSED ASIN'; // Titre du tableau
+                    // Créer l'en-tête du tableau
+                    const headerRow = table.insertRow();
+                    headers.forEach(header => {
+                        const cell = headerRow.insertCell();
+                        cell.textContent = header;
+                    });
+                    uniqueAttributes.forEach(attr => {
+                        const cell = headerRow.insertCell();
+                        cell.textContent = attr; // Met le texte en italique
+                    });
+
+                    // Créer les lignes du tableau avec indices
+                    const rowsWithIndex = data.map((row, index) => ({ ...row, index: index + 1 }));
+                    rowsWithIndex.forEach(row => {
+                        const rowElement = table.insertRow();
+                        headers.forEach(header => {
+                            const cell = rowElement.insertCell();
+                            cell.textContent = row[header] !== undefined ? row[header] : '';
+                        });
+                        uniqueAttributes.forEach(attr => {
+                            const cell = rowElement.insertCell();
+                            cell.textContent = ''; // Placeholder for analysis results
+                });
+            });
+
+            // Afficher la notification une fois la table générée
+            showNotification('Traitement terminé ! La table "resultstable" a été créée.');
+
+            // Analyser les données
+            analyzeData(rowsWithIndex, uniqueAttributes, table);
+        }
+    });
+}
+
+        function analyzeData(data, uniqueAttributes, table) {
+            const keyGroups = data.reduce((acc, row) => {
+                if (!acc[row.key]) acc[row.key] = [];
+                acc[row.key].push(row);
+                return acc;
+            }, {});
+
+            Object.keys(keyGroups).forEach(key => {
+                const group = keyGroups[key];
+                const totalRows = group.length;
+
+                uniqueAttributes.forEach(attr => {
+                    let correctCount = 0;
+                    let incorrectCount = 0;
+                    let missingCount = 0;
+
+                    group.forEach(row => {
+                        const assinJsonAttrs = row.assin_json ? row.assin_json.split(',').map(a => a.trim()) : [];
+                        const assinJugeJsonAttrs = row.assin_juge_json ? row.assin_juge_json.split(',').map(a => a.trim()) : [];
+
+                        if (assinJsonAttrs.includes(attr) && assinJugeJsonAttrs.includes(attr)) correctCount++;
+                        else if (assinJsonAttrs.includes(attr) && !assinJugeJsonAttrs.includes(attr)) incorrectCount++;
+                        else if (!assinJsonAttrs.includes(attr) && assinJugeJsonAttrs.includes(attr)) missingCount++;
+                    });
+
+                    // Déterminer si l'attribut est majoritaire ou minoritaire
+                    const isMajority = count => count >= totalRows / 2;
+                    const attributeIndex = table.rows[0].cells.length - uniqueAttributes.length + uniqueAttributes.indexOf(attr);
+
+                    group.forEach((row, rowIndex) => {
+                        const cell = table.rows[row.index].cells[attributeIndex]; // Utiliser row.index pour accéder à la bonne cellule
+
+                        if (row.assin_json ? row.assin_json.split(',').map(a => a.trim()).includes(attr) : false) {
+                            if (row.assin_juge_json ? row.assin_juge_json.split(',').map(a => a.trim()).includes(attr) : false) {
+                                cell.textContent = correctCount > 0 && isMajority(correctCount) ? 'c_maj' : correctCount > 0 ? 'c_min' : '';
+                            } else {
+                                cell.textContent = incorrectCount > 0 && isMajority(incorrectCount) ? 'i_maj' : incorrectCount > 0 ? 'i_min' : '';
+                            }
+                        } else if (row.assin_juge_json ? row.assin_juge_json.split(',').map(a => a.trim()).includes(attr) : false) {
+                            cell.textContent = missingCount > 0 && isMajority(missingCount) ? 'missing_maj' : missingCount > 0 ? 'missing_min' : '';
+                        } else {
+                            cell.textContent = '';
+                        }
+						
+                    });
+					
+					
+                });
+				
+				
+				
+            });
+			
+        }
+
+			
+		//RECENSER TOP CORRECT MAJORITY
+		function recenseTopCMaj() {
+    let resultTable = document.getElementById("resultstable");
+    let headers = resultTable.rows[0].cells;
+
+    let workerIdIndex = -1;
+    let attributeIndexes = [];
+    for (let i = 0; i < headers.length; i++) {
+        let header = headers[i].textContent.trim();
+        if (header === 'workerid') {
+            workerIdIndex = i;
+        } else if (header !== 'hitid' && header !== 'AssignmentId' && header !== 'Input.imageURL' && header !== 'Input.bbox' && header !== 'Input.content' && header !== 'Answer.output_data' && header !== 'amazon.image' && header !== 'Market place' && header !== 'Input.matches' && header !== 'key' && header !== 'assin_json' && header !== 'assin_juge_json') {
+            attributeIndexes.push(i);
+        }
+    }
+
+    if (workerIdIndex === -1 || attributeIndexes.length === 0) {
+        console.error("Les colonnes 'workerid' ou attributs sont manquantes.");
+        return;
+    }
+
+    let workerIdCount = {};
+    for (let i = 1; i < resultTable.rows.length; i++) {
+        let cells = resultTable.rows[i].cells;
+        let workerId = cells[workerIdIndex].textContent.trim();
+        if (!workerIdCount[workerId]) {
+            workerIdCount[workerId] = {};
+        }
+        for (let index of attributeIndexes) {
+            let attribute = headers[index].textContent.trim();
+            let value = cells[index].textContent.trim();
+            if (value === 'c_maj') {
+                if (!workerIdCount[workerId][attribute]) {
+                    workerIdCount[workerId][attribute] = 0;
+                }
+                workerIdCount[workerId][attribute]++;
+            }
+        }
+    }
+
+    let topResults = {};
+    for (let index of attributeIndexes) {
+        let attribute = headers[index].textContent.trim();
+        let counts = [];
+        for (let workerId in workerIdCount) {
+            if (workerIdCount[workerId][attribute]) {
+                counts.push([workerId, workerIdCount[workerId][attribute]]);
+            }
+        }
+        counts.sort((a, b) => b[1] - a[1]);
+        topResults[attribute] = counts.slice(0, 10);
+    }
+
+    let resultsTopCMaj = document.getElementById("resultsTopCMaj");
+    resultsTopCMaj.innerHTML = ''; // Vider le tableau précédent s'il existe
+
+    // Ajouter la légende
+    let caption = resultsTopCMaj.createCaption();
+    caption.textContent = "CORRECT MAJORITY";
+	
+
+    // Ajouter la ligne des en-têtes
+    let headerRow = resultsTopCMaj.insertRow();
+    headerRow.insertCell().textContent = 'Attribute';
+    for (let index of attributeIndexes) {
+        let headerCell = headerRow.insertCell();
+        headerCell.textContent = headers[index].textContent.trim();
+    }
+
+    let totalRow = resultsTopCMaj.insertRow();
+    let totalCell = totalRow.insertCell();
+    totalCell.textContent = 'Total';
+    for (let attribute of attributeIndexes) {
+        let totalCell = totalRow.insertCell();
+        let attributeTotal = topResults[headers[attribute].textContent.trim()].reduce((sum, item) => sum + item[1], 0);
+        totalCell.innerHTML = `<strong>${attributeTotal}</strong>`; // Mettre le texte en gras avec HTML
+    }
+
+    for (let place = 0; place < 10; place++) {
+        let row = resultsTopCMaj.insertRow();
+        let placeCell = row.insertCell();
+        placeCell.textContent = (place + 1) + ' Place';
+        for (let attribute of attributeIndexes) {
+            let cell = row.insertCell();
+            let attributeName = headers[attribute].textContent.trim();
+            if (topResults[attributeName][place]) {
+                cell.innerHTML = `${topResults[attributeName][place][0]} (<strong>${topResults[attributeName][place][1]}</strong>)`;
+            } else {
+                cell.textContent = '';
+            }
+        }
+    }
+}
+		//RECENSER TOP CORRECT MINORITY
+		function recenseTopCMin() {
+    let resultTable = document.getElementById("resultstable");
+    let headers = resultTable.rows[0].cells;
+
+    let workerIdIndex = -1;
+    let attributeIndexes = [];
+    for (let i = 0; i < headers.length; i++) {
+        let header = headers[i].textContent.trim();
+        if (header === 'workerid') {
+            workerIdIndex = i;
+        } else if (header !== 'hitid' && header !== 'AssignmentId' && header !== 'Input.imageURL' && header !== 'Input.bbox' && header !== 'Input.content' && header !== 'Answer.output_data' && header !== 'amazon.image' && header !== 'Market place' && header !== 'Input.matches' && header !== 'key' && header !== 'assin_json' && header !== 'assin_juge_json') {
+            attributeIndexes.push(i);
+        }
+    }
+
+    if (workerIdIndex === -1 || attributeIndexes.length === 0) {
+        console.error("Les colonnes 'workerid' ou attributs sont manquantes.");
+        return;
+    }
+
+    let workerIdCount = {};
+    for (let i = 1; i < resultTable.rows.length; i++) {
+        let cells = resultTable.rows[i].cells;
+        let workerId = cells[workerIdIndex].textContent.trim();
+        if (!workerIdCount[workerId]) {
+            workerIdCount[workerId] = {};
+        }
+        for (let index of attributeIndexes) {
+            let attribute = headers[index].textContent.trim();
+            let value = cells[index].textContent.trim();
+            if (value === 'c_min') {
+                if (!workerIdCount[workerId][attribute]) {
+                    workerIdCount[workerId][attribute] = 0;
+                }
+                workerIdCount[workerId][attribute]++;
+            }
+        }
+    }
+
+    let topResults = {};
+    for (let index of attributeIndexes) {
+        let attribute = headers[index].textContent.trim();
+        let counts = [];
+        for (let workerId in workerIdCount) {
+            if (workerIdCount[workerId][attribute]) {
+                counts.push([workerId, workerIdCount[workerId][attribute]]);
+            }
+        }
+        counts.sort((a, b) => b[1] - a[1]);
+        topResults[attribute] = counts.slice(0, 10);
+    }
+
+    let resultsTopCMin = document.getElementById("resultsTopCMin");
+    resultsTopCMin.innerHTML = ''; // Vider le tableau précédent s'il existe
+
+    // Ajouter la légende
+    let caption = resultsTopCMin.createCaption();
+    caption.textContent = "CORRECT MINORITY";
+	
+
+    // Ajouter la ligne des en-têtes
+    let headerRow = resultsTopCMin.insertRow();
+    headerRow.insertCell().textContent = 'Attribute';
+    for (let index of attributeIndexes) {
+        let headerCell = headerRow.insertCell();
+        headerCell.textContent = headers[index].textContent.trim();
+    }
+
+    let totalRow = resultsTopCMin.insertRow();
+    let totalCell = totalRow.insertCell();
+    totalCell.textContent = 'Total';
+    for (let attribute of attributeIndexes) {
+        let totalCell = totalRow.insertCell();
+        let attributeTotal = topResults[headers[attribute].textContent.trim()].reduce((sum, item) => sum + item[1], 0);
+        totalCell.innerHTML = `<strong>${attributeTotal}</strong>`; // Mettre le texte en gras avec HTML
+    }
+
+    for (let place = 0; place < 10; place++) {
+        let row = resultsTopCMin.insertRow();
+        let placeCell = row.insertCell();
+        placeCell.textContent = (place + 1) + ' Place';
+        for (let attribute of attributeIndexes) {
+            let cell = row.insertCell();
+            let attributeName = headers[attribute].textContent.trim();
+            if (topResults[attributeName][place]) {
+                cell.innerHTML = `${topResults[attributeName][place][0]} (<strong>${topResults[attributeName][place][1]}</strong>)`;
+            } else {
+                cell.textContent = '';
+            }
+        }
+    }
+}
+		//RECENSER TOP INCORRECT MAJORITY + MISSING MAJORITY
+		function recenseTopIMaj() {
+    let resultTable = document.getElementById("resultstable");
+    let headers = resultTable.rows[0].cells;
+
+    let workerIdIndex = -1;
+    let attributeIndexes = [];
+    for (let i = 0; i < headers.length; i++) {
+        let header = headers[i].textContent.trim();
+        if (header === 'workerid') {
+            workerIdIndex = i;
+        } else if (header !== 'hitid' && header !== 'AssignmentId' && header !== 'Input.imageURL' && header !== 'Input.bbox' && header !== 'Input.content' && header !== 'Answer.output_data' && header !== 'amazon.image' && header !== 'Market place' && header !== 'Input.matches' && header !== 'key' && header !== 'assin_json' && header !== 'assin_juge_json') {
+            attributeIndexes.push(i);
+        }
+    }
+
+    if (workerIdIndex === -1 || attributeIndexes.length === 0) {
+        console.error("Les colonnes 'workerid' ou attributs sont manquantes.");
+        return;
+    }
+
+    let workerIdCount = {};
+    for (let i = 1; i < resultTable.rows.length; i++) {
+        let cells = resultTable.rows[i].cells;
+        let workerId = cells[workerIdIndex].textContent.trim();
+        if (!workerIdCount[workerId]) {
+            workerIdCount[workerId] = {};
+        }
+        for (let index of attributeIndexes) {
+            let attribute = headers[index].textContent.trim();
+            let value = cells[index].textContent.trim();
+            if (value === 'i_maj' || value === 'missing_maj') {
+                if (!workerIdCount[workerId][attribute]) {
+                    workerIdCount[workerId][attribute] = 0;
+                }
+                workerIdCount[workerId][attribute]++;
+            }
+        }
+    }
+
+    let topResults = {};
+    for (let index of attributeIndexes) {
+        let attribute = headers[index].textContent.trim();
+        let counts = [];
+        for (let workerId in workerIdCount) {
+            if (workerIdCount[workerId][attribute]) {
+                counts.push([workerId, workerIdCount[workerId][attribute]]);
+            }
+        }
+        counts.sort((a, b) => b[1] - a[1]);
+        topResults[attribute] = counts.slice(0, 10);
+    }
+
+    let resultsTopIMaj = document.getElementById("resultsTopIMaj");
+    resultsTopIMaj.innerHTML = ''; // Vider le tableau précédent s'il existe
+
+    // Ajouter la légende
+    let caption = resultsTopIMaj.createCaption();
+    caption.textContent = "INCORRECT MAJORITY ET MISSING MAJORITY";
+	
+
+    // Ajouter la ligne des en-têtes
+    let headerRow = resultsTopIMaj.insertRow();
+    headerRow.insertCell().textContent = 'Attribute';
+    for (let index of attributeIndexes) {
+        let headerCell = headerRow.insertCell();
+        headerCell.textContent = headers[index].textContent.trim();
+    }
+
+    let totalRow = resultsTopIMaj.insertRow();
+    let totalCell = totalRow.insertCell();
+    totalCell.textContent = 'Total';
+    for (let attribute of attributeIndexes) {
+        let totalCell = totalRow.insertCell();
+        let attributeTotal = topResults[headers[attribute].textContent.trim()].reduce((sum, item) => sum + item[1], 0);
+        totalCell.innerHTML = `<strong>${attributeTotal}</strong>`; // Mettre le texte en gras avec HTML
+    }
+
+    for (let place = 0; place < 10; place++) {
+        let row = resultsTopIMaj.insertRow();
+        let placeCell = row.insertCell();
+        placeCell.textContent = (place + 1) + ' Place';
+        for (let attribute of attributeIndexes) {
+            let cell = row.insertCell();
+            let attributeName = headers[attribute].textContent.trim();
+            if (topResults[attributeName][place]) {
+                cell.innerHTML = `${topResults[attributeName][place][0]} (<strong>${topResults[attributeName][place][1]}</strong>)`;
+            } else {
+                cell.textContent = '';
+            }
+        }
+    }
+}
+
+		//RECENSER TOP INCORRECT MINORITY + MISSING MINORITY
+		function recenseTopIMin() {
+    let resultTable = document.getElementById("resultstable");
+    let headers = resultTable.rows[0].cells;
+
+    let workerIdIndex = -1;
+    let attributeIndexes = [];
+    for (let i = 0; i < headers.length; i++) {
+        let header = headers[i].textContent.trim();
+        if (header === 'workerid') {
+            workerIdIndex = i;
+        } else if (header !== 'hitid' && header !== 'AssignmentId' && header !== 'Input.imageURL' && header !== 'Input.bbox' && header !== 'Input.content' && header !== 'Answer.output_data' && header !== 'amazon.image' && header !== 'Market place' && header !== 'Input.matches' && header !== 'key' && header !== 'assin_json' && header !== 'assin_juge_json') {
+            attributeIndexes.push(i);
+        }
+    }
+
+    if (workerIdIndex === -1 || attributeIndexes.length === 0) {
+        console.error("Les colonnes 'workerid' ou attributs sont manquantes.");
+        return;
+    }
+
+    let workerIdCount = {};
+    for (let i = 1; i < resultTable.rows.length; i++) {
+        let cells = resultTable.rows[i].cells;
+        let workerId = cells[workerIdIndex].textContent.trim();
+        if (!workerIdCount[workerId]) {
+            workerIdCount[workerId] = {};
+        }
+        for (let index of attributeIndexes) {
+            let attribute = headers[index].textContent.trim();
+            let value = cells[index].textContent.trim();
+            if (value === 'i_min' || value === 'missing_min') {
+                if (!workerIdCount[workerId][attribute]) {
+                    workerIdCount[workerId][attribute] = 0;
+                }
+                workerIdCount[workerId][attribute]++;
+            }
+        }
+    }
+
+    let topResults = {};
+    for (let index of attributeIndexes) {
+        let attribute = headers[index].textContent.trim();
+        let counts = [];
+        for (let workerId in workerIdCount) {
+            if (workerIdCount[workerId][attribute]) {
+                counts.push([workerId, workerIdCount[workerId][attribute]]);
+            }
+        }
+        counts.sort((a, b) => b[1] - a[1]);
+        topResults[attribute] = counts.slice(0, 10);
+    }
+
+    let resultsTopIMin = document.getElementById("resultsTopIMin");
+    resultsTopIMin.innerHTML = ''; // Vider le tableau précédent s'il existe
+
+    // Ajouter la légende
+    let caption = resultsTopIMin.createCaption();
+    caption.textContent = "INCORRECT MINORITY ET MISSING MINORITY";
+	
+
+    // Ajouter la ligne des en-têtes
+    let headerRow = resultsTopIMin.insertRow();
+    headerRow.insertCell().textContent = 'Attribute';
+    for (let index of attributeIndexes) {
+        let headerCell = headerRow.insertCell();
+        headerCell.textContent = headers[index].textContent.trim();
+    }
+
+    let totalRow = resultsTopIMin.insertRow();
+    let totalCell = totalRow.insertCell();
+    totalCell.textContent = 'Total';
+    for (let attribute of attributeIndexes) {
+        let totalCell = totalRow.insertCell();
+        let attributeTotal = topResults[headers[attribute].textContent.trim()].reduce((sum, item) => sum + item[1], 0);
+        totalCell.innerHTML = `<strong>${attributeTotal}</strong>`; // Mettre le texte en gras avec HTML
+    }
+
+    for (let place = 0; place < 10; place++) {
+        let row = resultsTopIMin.insertRow();
+        let placeCell = row.insertCell();
+        placeCell.textContent = (place + 1) + ' Place';
+        for (let attribute of attributeIndexes) {
+            let cell = row.insertCell();
+            let attributeName = headers[attribute].textContent.trim();
+            if (topResults[attributeName][place]) {
+                cell.innerHTML = `${topResults[attributeName][place][0]} (<strong>${topResults[attributeName][place][1]}</strong>)`;
+            } else {
+                cell.textContent = '';
+            }
+        }
+    }
+}
+
+		
+
+		
+		
+		//EXECUTE ALL FONCTION C_MAJ C_MIN I_MAJ I_MIN MISSING_MAJ ET MISSING_MIN
+		 function executeAllFunctions() {
+            recenseTopCMaj();
+            recenseTopCMin();
+            recenseTopIMaj();
+            recenseTopIMin();
+        }
+		function copyData() {
+    const tableSelect = document.getElementById('tableSelect');
+    const selectedTableId = tableSelect.value;
+    const table = document.getElementById(selectedTableId);
+    
+    // Obtenir le texte affiché pour l'option sélectionnée
+    const selectedOptionText = tableSelect.options[tableSelect.selectedIndex].text;
+    
+    if (!table) {
+        alert('Table not found.');
+        return;
+    }
+
+    let range, selection;
+    if (document.createRange && window.getSelection) {
+        range = document.createRange();
+        selection = window.getSelection();
+        selection.removeAllRanges();
+        try {
+            range.selectNodeContents(table);
+            selection.addRange(range);
+        } catch (e) {
+            range.selectNode(table);
+            selection.addRange(range);
+        }
+        document.execCommand('copy');
+        alert(selectedOptionText + ' copied');
+    } else if (document.body.createTextRange) {
+        range = document.body.createTextRange();
+        range.moveToElementText(table);
+        range.select();
+        range.execCommand('copy');
+        alert(selectedOptionText + ' copied');
+    }
+    selection.removeAllRanges();
+}
+
+// Fonction pour copier le contenu d'une table dans le presse-papiers
+async function copyTableToClipboard(table) {
+    if (!table) {
+        console.error('Table non trouvée.');
+        return;
+    }
+
+    // Vérifier si la table est vide
+    if (!table.innerText.trim()) {
+        alert('Table vide');
+        return;
+    }
+
+    try {
+        // Obtenir le contenu de la table
+        const tableText = table.innerText;
+
+        // Copier le contenu dans le presse-papiers en utilisant l'API Clipboard
+        await navigator.clipboard.writeText(tableText);
+
+        // Obtenir l'ID de la table
+        const tableId = table.id || 'sans ID';
+
+        // Afficher une notification pour l'utilisateur avec l'ID de la table
+        alert(`Table ${tableId} copiée dans le presse-papiers!`);
+    } catch (err) {
+        console.error('Erreur lors de la copie dans le presse-papiers:', err);
+    }
+}
+
+// Ajouter l'événement click pour copier une table
+document.querySelectorAll('table').forEach(table => {
+    table.onclick = () => {
+        copyTableToClipboard(table);
+    };
+});
+
+
+
+function showNotification(message) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.style.display = 'block';
+
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 5000); // Hide after 5 seconds
+}
+    </script>
+</body>
+</html>

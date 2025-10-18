@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESTIMATION CONSENSUS CS/FURNITURE/IRR</title>
+  <script src="papaparse_rado.js"></script>
+  <style>
+  /* Style global du corps */
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+  }
+
+  /* Titres */
+  h1, h2 {
+    color: #333;
+    font-size: 24px;
+    margin: 20px 0;
+  }
+
+  /* Style des tableaux sauf #overview_table */
+	table:not(#overview_table) {
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 1000px;
+}
+
+  th, td {
+    padding: 5px 10px; /* Réduction du padding pour ajuster la hauteur */
+    text-align: center;
+    font-size: 14px;
+  }
+
+  th {
+    background-color: #333;
+    color: white;
+  }
+
+  td {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Affiche '...' si le texte dépasse */
+    white-space: nowrap; /* Empêche le texte de se dérouler */
+  }
+
+  /* Colonne Source.name */
+  td:first-child { /* Cible la première colonne (Source.name) */
+    width: 120px; /* Limite la largeur pour éviter le texte trop long */
+    text-align: left;
+  }
+
+  tr:nth-child(even) td {
+    background-color: #f9f9f9;
+  }
+
+  tr:hover td {
+    background-color: #f1f1f1;
+  }
+
+  /* Style des champs de saisie et boutons */
+  input, select, button {
+    padding: 10px 15px;
+    margin: 10px 5px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    outline: none;
+  }
+
+  input[type="file"] {
+    padding: 5px;
+  }
+  #fileNameDisplay {
+    margin-left: 10px;
+    font-weight: bold;
+    color: #333;
+}
+
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  button:hover {
+    background-color: #0056b3;
+  }
+  
+  #showConsensusButton,#copy_partage {
+  display:none;
+  }
+
+  #qasSelect {
+    margin-top: 5px;
+    display: none;
+  }
+
+  /* Hauteur de la ligne à 10px */
+  tr {
+    height: 10px; /* Ajustement de la hauteur de ligne */
+  }
+
+  /* Sélecteur de partage */
+  #partageTable {
+    margin-top: 20px;
+	display:none;
+  }
+
+  #partageTable thead th {
+    background-color: #007bff;
+    color: white;
+  }
+
+  #partageTable td, #partageTable th {
+    padding: 10px;
+  }
+
+  /* Cacher la table resultTable par défaut */
+  #resultTable {
+    display: none; /* Cache le tableau */
+  }
+   /* Cacher la table consensusTable par défaut */
+  #consensusTable {
+    display: none; /* Cache le tableau */
+  }
+  
+  /* Style spécifique pour la table partageTable */
+#partageTable td:first-child, 
+#partageTable td:nth-child(3), /* Cible aussi les autres colonnes QAS_N si nécessaire */
+#partageTable td:nth-child(5), 
+#partageTable td:nth-child(7), 
+#partageTable td:nth-child(9), 
+#partageTable td:nth-child(11) {
+  max-width: auto; /* Ajustez selon le besoin */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Tronquer le texte */
+  white-space: nowrap;
+}
+/* Ajuster la largeur de la colonne "Accord" dans partageTable */
+#partageTable td:nth-child(2),
+#partageTable td:nth-child(4),
+#partageTable td:nth-child(6),
+#partageTable td:nth-child(8),
+#partageTable td:nth-child(10) {
+  width: 10; /* Ajustement automatique */
+  min-width: auto; /* Largeur minimale pour éviter l'écrasement */
+  max-width: auto; /* Évite que la colonne soit trop large */
+  white-space: nowrap; /* Empêche le retour à la ligne */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Affiche "..." si le texte dépasse */
+}
+
+#checkboxContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 10px 0;
+  }
+
+  #checkboxContainer label {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    gap: 4px;
+    padding: 2px 6px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+  }
+
+    #checkboxContainer label:hover {
+      background: #e0e0e0;
+    }
+
+    #checkboxContainer input[type="checkbox"]:disabled + span {
+      color: #999;
+    }
+	
+	}
+
+  .flex-container {
+    display: flex;
+    gap: 20px;
+  }
+
+  .left-panel, .right-panel {
+    flex: 1;
+  }
+
+  .btn-group {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+  }
+  
+#overview_table tr {
+  background-color: unset !important;
+}
+  
+
+</style>
+
+
+
+</head>
+<body>
+  <!-- Container pour les deux divs côte à côte -->
+<div style="display: flex; justify-content: space-between;">
+
+    <!-- Premier div avec les boutons et le sélecteur -->
+    <div style="flex: 1; margin-right: 10px;">
+        <h1>Estimation Accord et PARTAGE</h1>
+        
+        <input type="file" id="fileInput" accept=".tsv, .csv" />
+        <button id="processButton">Process TSV</button>
+        <button id="showConsensusButton">Show Consensus</button></br>
+        <label for="qasSelect">Liste CQ/QAS:</label>
+		<div id="checkboxContainer">
+			  <label><input type="checkbox" id="checkAll" value="Tout" data-color="#2c52fb"> Tout</label>
+			  <label><input type="checkbox" class="option" value="1090" data-color="#19db6b"> Rado</label>     <!-- vert clair -->
+			  <label><input type="checkbox" class="option" value="1353" data-color="#fc0315"> Santatra</label> <!-- jaune clair -->
+			  <label><input type="checkbox" class="option" value="1154" data-color="#f8d7da"> Ravo</label>     <!-- rouge rosé -->
+			  <label><input type="checkbox" class="option" value="1396" data-color="#a9d5ec"> Léa</label>      <!-- bleu clair -->
+			  <label><input type="checkbox" class="option" value="1765" data-color="#e2e3e5"> Thonny</label>   <!-- gris clair -->
+			  <label><input type="checkbox" class="option" value="2433" data-color="#ee8d6d"> Nomena</label>   <!-- rose foncé -->
+			  <label><input type="checkbox" class="option" value="2844" data-color="#c3e6cb"> Lalaina</label>  <!-- vert plus foncé -->
+			</div>
+        <select id="qasSelect">
+		  <option value="1">1</option>
+		  <option value="2">2</option>
+		  <option value="3">3</option>
+		  <option value="4">4</option>
+		  <option value="5">5</option>
+		  <option value="6">6</option>
+		  <option value="7">7</option>
+		</select>
+		
+        <div><button id="shareButton">Partager</button><button id="copy_partage">Copy Partage</button><label><input type="checkbox" id="togglePartageTable">Afficher la Moyenne</label></div>
+		
+		
+    </div>
+
+    <!-- Deuxième div avec le tableau -->
+    <div style="flex: 1; margin-left: 10px;">
+	<h2>Overview Table</h2>
+        <table border="1" id="overview_table">
+            <thead>
+                <tr>
+                    <th>Accord</th>
+                    <th>Nombre HitID</th>
+                    <th>Pourcentage</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+	</div>
+
+<table border="1" id="resultTable">
+    <thead>
+      <tr>
+        <th>Source.name</th>
+        <th>AssignmentId</th>
+        <th>HITId</th>
+        <th>WorkerId</th>
+        <th>asin1</th>
+        <th>asin2</th>
+        <th>asin3</th>
+        <th>asin4</th>
+        <th>asin5</th>
+        <th>asin6</th>
+        <th>asin7</th>
+        <th>asin8</th>
+        <th>asin9</th>
+        <th>asin10</th>
+		<th>asin11</th>
+		<th>asin12</th>
+		<th>asin13</th>
+		<th>asin14</th>
+		<th>asin15</th>
+		<th>asin16</th>
+		<th>asin17</th>
+		<th>asin18</th>
+		<th>asin19</th>
+		<th>asin20</th>
+		<th>asin21</th>
+		<th>asin22</th>
+		<th>asin23</th>
+		<th>asin24</th>
+		<th>asin25</th>
+		<th>asin26</th>
+		<th>asin27</th>
+		<th>asin28</th>
+		<th>asin29</th>
+		<th>asin30</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+<table id="partageTable" border="1">
+    <thead>
+        <tr>
+            <th>QAS traitant:</th>
+			<th>Accord:</th>
+        </tr>
+        <tr>
+            <th>Moyenne:</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+<table id="partageTable2" border="1" style="margin-top: 20px; border-collapse: collapse;">
+  <thead>
+  <tr>
+    <th>Batch</th>
+    <th>HitID</th>
+    <th>CQ/QAS</th>
+    <th>Accord</th>
+	<th>Participants</th>
+    <th>WorkerID</th>
+    <th>Volume produit</th>
+    <th>TTT</th>
+  </tr>
+</thead>
+  <tbody></tbody>
+</table>
+
+  
+  <table border="1" id="consensusTable">
+    <thead>
+      <tr>
+        <th>Source.name</th>
+        <th>HITId</th>
+        <th>asin1</th>
+        <th>asin2</th>
+        <th>asin3</th>
+        <th>asin4</th>
+        <th>asin5</th>
+        <th>asin6</th>
+        <th>asin7</th>
+        <th>asin8</th>
+        <th>asin9</th>
+        <th>asin10</th>
+		<th>asin11</th>
+		<th>asin12</th>
+		<th>asin13</th>
+		<th>asin14</th>
+		<th>asin15</th>
+		<th>asin16</th>
+		<th>asin17</th>
+		<th>asin18</th>
+		<th>asin19</th>
+		<th>asin20</th>
+		<th>asin21</th>
+		<th>asin22</th>
+		<th>asin23</th>
+		<th>asin24</th>
+		<th>asin25</th>
+		<th>asin26</th>
+		<th>asin27</th>
+		<th>asin28</th>
+		<th>asin29</th>
+		<th>asin30</th>
+        <th>Moyenne</th>
+		<th>Nb Assgt</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  
+
+
+  <script>
+document.getElementById('processButton').addEventListener('click', () => {
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files.length) {
+        alert('Veuillez sélectionner un fichier TSV.');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        worker: true, // Utilisation de Web Workers pour les fichiers volumineux
+        complete: (result) => {
+		processTSV(result.data);
+		window.tsvDataGlobal = result.data; // ✅ Stockage global correct
+
+		// ✅ Simuler le clic du bouton "Show Consensus"
+		const showBtn = document.getElementById("showConsensusButton");
+		if (showBtn) showBtn.click();
+	},
+    });
+});
+
+function processTSV(data) {
+    const resultTableBody = document.querySelector('#resultTable tbody');
+    resultTableBody.innerHTML = ''; // Nettoyer les résultats précédents
+    const fragment = document.createDocumentFragment(); // Meilleure performance DOM
+
+    data.forEach(row => {
+        if (!row['Answer.output_data']) return; // Vérification avant JSON.parse
+        let outputData;
+        try {
+            outputData = JSON.parse(row['Answer.output_data']);
+        } catch (e) {
+            return; // Ignore les lignes avec JSON invalide
+        }
+
+        const asins = new Array(31).fill(''); // Initialisation du tableau des ASINs
+		let index = 0;
+        for (const asin in outputData) {
+            //if (index >= 10) break;
+			if (index >= 31) break;
+            
+            // Filtrage des clés selon les conditions spécifiées
+            asins[index] = Object.keys(outputData[asin])
+                .filter(key => 
+                    outputData[asin][key] === true || 
+                    ["irrelevant", "cannot_judge", "possible_substitute", "exact_match"].includes(outputData[asin][key])
+                )
+                .map(key => `${key}:${outputData[asin][key]}`)  // Ajouter la valeur de la clé pour les conditions supplémentaires
+                .join(',');  // Joindre les clés avec leurs valeurs
+            index++;
+        }
+
+        // Création de la ligne optimisée
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>${row['Source.name'] || ''}</td>
+            <td>${row['AssignmentId'] || ''}</td>
+            <td>${row['HITId'] || ''}</td>
+            <td>${row['WorkerId'] || ''}</td>
+            ${asins.map(asin => `<td>${asin}</td>`).join('')}
+        `;
+        fragment.appendChild(newRow);
+    });
+
+    resultTableBody.appendChild(fragment); // Ajout optimisé au DOM
+    showNotification("Table de Résultat Créée");
+}
+
+
+function showNotification(message) {
+    const notification = document.createElement("div");
+    Object.assign(notification.style, {
+        position: "fixed",
+        top: "20px",
+        right: "20px",
+        backgroundColor: "green",
+        color: "white",
+        padding: "10px",
+        borderRadius: "5px",
+        fontWeight: "bold",
+        boxShadow: "0px 0px 10px rgba(0, 0, 0, 0.2)"
+    });
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => notification.remove(), 3000);
+}
+
+
+
+
+// CALCUL CONSENSUS PERCENTAGE
+
+document.getElementById('showConsensusButton').addEventListener('click', () => {
+  const resultTableBody = document.querySelector('#resultTable tbody');
+  const consensusTableBody = document.querySelector('#consensusTable tbody');
+
+  if (!resultTableBody || resultTableBody.children.length === 0) {
+    alert('Lancer d\'abord Process pour générer le tableau des résultats.');
+    return;
+  }
+
+  const rows = Array.from(resultTableBody.children);
+  const groupedByHITId = {};
+
+  // Grouper les lignes par HITId
+  rows.forEach(row => {
+    const cells = row.children;
+    const HITId = cells[2].textContent;
+    const asins = Array.from(cells).slice(4, 34).map(cell => cell.textContent.split(',').map(a => a.trim()));
+
+    if (!groupedByHITId[HITId]) {
+      groupedByHITId[HITId] = [];
+    }
+    groupedByHITId[HITId].push(asins);
+  });
+
+  consensusTableBody.innerHTML = ''; // Effacer les données existantes dans la table des consensus
+
+  // Calculer le consensus pour chaque HITId
+  Object.entries(groupedByHITId).forEach(([HITId, groups]) => {
+    const sourceName = rows.find(row => row.children[2].textContent === HITId).children[0].textContent;
+    const consensusPercentages = [];
+    let totalPercentage = 0;
+    let validColumnsCount = 0; // Compte des colonnes valides (non vides)
+
+
+///MODIFICATION POUR PRENDRE EN COMPTE LES FICHIERS IRR
+		let totalMajorityCountGlobal = 0; // Total général des majoritaires
+		let totalMinorityCountGlobal = 0; // Total général des minoritaires
+		//let consensusPercentages = [];
+		const totalLines = groups.length;
+
+		for (let i = 0; i < 30; i++) {
+		  const attributeCounts = {};
+		  const minorAttributeCounts = {};
+
+		  // Compter la fréquence des attributs pour la colonne
+		  groups.forEach(group => {
+			group[i].forEach(attribute => {
+			  if (attribute) {
+				attributeCounts[attribute] = (attributeCounts[attribute] || 0) + 1;
+			  }
+			});
+		  });
+
+		  if (Object.keys(attributeCounts).length === 0) {
+			consensusPercentages.push('');
+			continue;
+		  }
+
+		  const uniqueAttributes = new Set();
+		  groups.forEach(group => {
+			group[i].forEach(attribute => {
+			  if (attribute) uniqueAttributes.add(attribute);
+			});
+		  });
+
+		  //const sortedCounts = Object.entries(attributeCounts).sort((a, b) => b[1] - a[1]);
+		const sortedCounts = Object.entries(attributeCounts)
+		  .filter(([attribute]) => attribute !== "on" && attribute !== "is_not_targeted_match") // ⛔️ Exclure "on" et "is_not_targeted_match"
+		  .sort((a, b) => b[1] - a[1]);
+		  let totalMajorityCount = 0;
+		  let totalMinorityCount = 0; // 🆕 Compteur local pour les minoritaires
+
+		  const minorityAttributes = [];
+		  sortedCounts.forEach(([attribute, count]) => {
+			if (count >= totalLines / 2) {
+			  totalMajorityCount += count;
+			} else {
+			  minorityAttributes.push(attribute);
+			  minorAttributeCounts[attribute] = count;
+			  totalMinorityCount += count; // 🆕 Ajout au compteur local
+			}
+		  });
+
+		  // 🆕 Ajout aux compteurs globaux
+		  totalMajorityCountGlobal += totalMajorityCount;
+		  totalMinorityCountGlobal += totalMinorityCount;
+
+		  // 🆕 Nouveau calcul local pour cette colonne
+		  const percentage = (totalMajorityCount + totalMinorityCount) > 0
+			? (totalMajorityCount / (totalMajorityCount + totalMinorityCount)) * 100
+			: 0;
+			
+		  consensusPercentages.push(`${percentage.toFixed(2)}%`);
+		  
+		}
+
+		// 🆕 Nouveau calcul global
+		const moyenne = (totalMajorityCountGlobal + totalMinorityCountGlobal) > 0
+		  ? (totalMajorityCountGlobal / (totalMajorityCountGlobal + totalMinorityCountGlobal)) * 100
+		  : 0;
+		const moyenneFormatted = formatPourcentage(moyenne);
+		//const moyenneFormatted = `${moyenne.toFixed(2)}%`;
+		
+		
+		
+
+
+
+    // Déterminer la couleur de fond en fonction de la valeur de la moyenne
+    let moyennePourcentage = parseFloat(moyenne);
+    let moyenneColor = moyennePourcentage >= 99 ? 'lightgreen' :
+                       moyennePourcentage >= 80 ? 'lightyellow' : 
+                       moyennePourcentage > 0 ? 'lightcoral' : 'white';
+
+    // Création de la ligne avec colorisation
+const newRow = document.createElement('tr');
+newRow.innerHTML = `
+  <td>${sourceName}</td>
+  <td>${HITId}</td>
+  ${consensusPercentages.map(value => {
+    let percentage = parseFloat(value);
+    let color = percentage >= 99 ? 'lightgreen' :
+                percentage >= 80 ? 'lightyellow' : 
+                percentage > 0 ? 'lightcoral' : 'white';
+    return `<td style="background-color:${color}">${value}</td>`;
+  }).join('')}
+  <td style="background-color:${moyenneColor}; font-weight:bold;">${moyenneFormatted}</td>
+  <td>${totalLines}</td> <!-- ✅ Nb Assgt inséré ici -->
+`;
+
+    ///FIN MODIFICATION POUR PRENDRE EN COMPTE LES FICHIERS IRR
+    consensusTableBody.appendChild(newRow);
+	
+  });
+  updateOverviewTable();
+  
+  
+});
+
+
+
+//PARTAGE HITID PAR QAS TRAITANT
+document.getElementById("shareButton").addEventListener("click", function () {
+    const consensusTable = document.getElementById("consensusTable");
+    const partageTable = document.getElementById("partageTable");
+    const qasCount = parseInt(document.getElementById("qasSelect").value);
+
+    if (!consensusTable || consensusTable.rows.length < 2) {
+        alert("Erreur : Le tableau 'consensusTable' est vide ou inexistant.");
+        return;
+    }
+
+    // Récupérer les index des colonnes "HITId", "Moyenne" et "Nb Assgt"
+    const headers = Array.from(consensusTable.rows[0].cells);
+    const hitIdIndex = headers.findIndex(cell => cell.textContent.trim().toLowerCase() === "hitid");
+    const moyenneIndex = headers.findIndex(cell => cell.textContent.trim().toLowerCase() === "moyenne");
+    const nbAssgtIndex = headers.findIndex(cell => cell.textContent.trim().toLowerCase() === "nb assgt"); // 🆕 Ajout
+
+    if (hitIdIndex === -1 || moyenneIndex === -1 || nbAssgtIndex === -1) {
+        alert("Colonnes 'HITId', 'Moyenne' ou 'Nb Assgt' introuvables.");
+        return;
+    }
+
+    // Extraction et nettoyage des données
+    const rows = Array.from(consensusTable.rows).slice(1);
+    const hitData = rows.map(row => {
+        const hitId = row.cells[hitIdIndex].textContent.trim();
+        const moyenneText = row.cells[moyenneIndex].textContent.trim().replace("%", "");
+        const nbAssgtText = row.cells[nbAssgtIndex].textContent.trim(); // 🆕
+        const moyenne = parseFloat(moyenneText);
+        const nbAssgt = parseInt(nbAssgtText) || 0; // 🆕
+        return !isNaN(moyenne) ? { hitId, moyenne, nbAssgt } : null;
+    }).filter(row => row !== null);
+
+    if (hitData.length === 0) {
+        alert("Aucune donnée valide à répartir.");
+        return;
+    }
+
+    // Répartition équilibrée basée sur la somme des moyennes
+    hitData.sort((a, b) => b.moyenne - a.moyenne);
+    let distributions = Array.from({ length: qasCount }, () => []);
+    let sums = new Array(qasCount).fill(0);
+
+    for (let hit of hitData) {
+        const minIndex = sums.indexOf(Math.min(...sums));
+        distributions[minIndex].push(hit);
+        sums[minIndex] += hit.moyenne;
+    }
+
+    // Préparation de l'affichage du tableau de partage
+    partageTable.innerHTML = `
+        <thead>
+            <tr>${Array.from({ length: qasCount }).map((_, i) => `<th>QAS_${i + 1}</th><th>Accord</th>`).join('')}</tr>
+        </thead>
+        <tbody></tbody>
+    `;
+
+    const tbody = partageTable.querySelector("tbody");
+    const maxLength = Math.max(...distributions.map(d => d.length));
+
+    for (let i = 0; i < maxLength; i++) {
+        const row = document.createElement("tr");
+        for (let j = 0; j < qasCount; j++) {
+            const data = distributions[j][i];
+            const tdId = document.createElement("td");
+            const tdMoyenne = document.createElement("td");
+
+            if (data) {
+                tdId.textContent = data.hitId;
+                tdMoyenne.textContent = `${data.moyenne.toFixed(2)}% - ${data.nbAssgt} Assgnt`; // ✅ Affichage combiné
+
+                tdId.style.backgroundColor = 
+                    data.moyenne >= 99 ? 'lightgreen' :
+                    data.moyenne >= 80 ? 'lightyellow' :
+                    'lightcoral';
+            } else {
+                tdId.textContent = "-";
+                tdMoyenne.textContent = "-";
+            }
+
+            row.appendChild(tdId);
+            row.appendChild(tdMoyenne);
+        }
+        tbody.appendChild(row);
+    }
+
+    // Ligne finale des moyennes
+    const avgRow = document.createElement("tr");
+    for (let j = 0; j < qasCount; j++) {
+        const moyenneCell = document.createElement("td");
+        const valueCell = document.createElement("td");
+        const qasGroup = distributions[j];
+
+        moyenneCell.textContent = "Moyenne :";
+
+        if (qasGroup.length > 0) {
+            const moyenne = qasGroup.reduce((sum, h) => sum + h.moyenne, 0) / qasGroup.length;
+            valueCell.textContent = moyenne.toFixed(2) + "%";
+        } else {
+            valueCell.textContent = "0.00%";
+        }
+
+        avgRow.appendChild(moyenneCell);
+        avgRow.appendChild(valueCell);
+    }
+    tbody.appendChild(avgRow);
+// PARTAGE TABLE 2
+// ➕ Création de partageTable2
+    const partageTable2 = document.getElementById("partageTable2");
+    partageTable2.querySelector("tbody").innerHTML = '';
+
+    // ✅ Récupération des QAS cochés
+    const allCheckboxes = document.querySelectorAll('#checkboxContainer input[type="checkbox"].option');
+    const toutChecked = document.getElementById("checkAll").checked;
+    let qasList = [];
+
+    if (toutChecked) {
+        // Si "Tout" est coché, prendre toutes les valeurs
+        qasList = Array.from(allCheckboxes).map(cb => cb.value);
+    } else {
+        qasList = Array.from(allCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+    }
+
+    if (qasList.length === 0) {
+        alert("Aucun QAS sélectionné pour partageTable2.");
+        return;
+    }
+
+    // ✅ Repartition équitable sur les QAS cochés
+    let distributions2 = Array.from({ length: qasList.length }, () => []);
+    let sums2 = new Array(qasList.length).fill(0);
+
+    for (let hit of hitData) {
+        const minIndex = sums2.indexOf(Math.min(...sums2));
+        distributions2[minIndex].push(hit);
+        sums2[minIndex] += hit.moyenne;
+    }
+
+    // ✅ Remplir le tableau partageTable2
+    const tbody2 = partageTable2.querySelector("tbody");
+    for (let i = 0; i < qasList.length; i++) {
+        const qas = qasList[i];
+        const group = distributions2[i];
+
+        for (let item of group) {
+            const tr = document.createElement("tr");
+
+            const tdBatch = document.createElement("td");
+            tdBatch.textContent = rowSourceName(item.hitId); // 🔁 voir helper ci-dessous
+
+            const tdHit = document.createElement("td");
+            tdHit.textContent = item.hitId;
+
+            const tdQAS = document.createElement("td");
+            tdQAS.textContent = qas;
+
+            const tdAccord = document.createElement("td");
+            tdAccord.textContent = `${item.moyenne.toFixed(2)}% - ${item.nbAssgt} Assgnt`;
+
+            tr.appendChild(tdBatch);
+            tr.appendChild(tdHit);
+            tr.appendChild(tdQAS);
+            tr.appendChild(tdAccord);
+
+            tbody2.appendChild(tr);
+        }
+    }
+
+    // 🔧 Helper pour retrouver le Source.name d'un HITId dans consensusTable
+    function rowSourceName(hitId) {
+        const row = rows.find(r => r.cells[hitIdIndex].textContent.trim() === hitId);
+        return row ? (row.cells[0]?.textContent.trim() || '') : '';
+    }
+	
+pre_finalise_partageTable2();
+finalise_partageTable2();
+coloriser_partageTable2(); // 🎨 Coloration finale
+
+
+// FIN PARTAGE TABLE 2
+	
+	
+});
+
+
+
+
+
+
+//COPY PARTAGE TABLE
+document.getElementById('copy_partage').addEventListener('click', function() {
+  // Récupère la table "partageTable"
+  const partageTable = document.getElementById('partageTable');
+  
+  // Crée un élément temporaire pour copier le texte
+  const tempTextArea = document.createElement('textarea');
+  
+  // Copie tout le contenu HTML de la table dans le textarea
+  tempTextArea.value = partageTable.innerText; // Utiliser innerText pour ne copier que le texte visible
+  
+  // Ajoute le textarea au document
+  document.body.appendChild(tempTextArea);
+  
+  // Sélectionne tout le contenu de ce textarea
+  tempTextArea.select();
+  tempTextArea.setSelectionRange(0, 99999); // Pour les appareils mobiles
+  
+  // Exécute la commande de copie
+  document.execCommand('copy');
+  
+  // Supprime le textarea temporaire après la copie
+  document.body.removeChild(tempTextArea);
+  
+  // Affiche une notification ou une alerte pour confirmer
+  alert('Table copied to clipboard!');
+});
+
+
+
+
+// Associer le calcul de consensus au bouton
+//document.getElementById('showConsensusButton').addEventListener('click', calculateConsensus);
+
+function formatPourcentage(value) {
+  return `${Number(value).toFixed(2)}%`;
+}
+
+
+//OVERVIEW SECTION
+
+
+function updateOverviewTable() {
+  const consensusTable = document.getElementById('consensusTable');
+  const rows = consensusTable.querySelector('tbody').querySelectorAll('tr');
+  const totalRows = rows.length;
+
+  let topCount = 0, slightlyTopCount = 0, averageCount = 0, badCount = 0, veryBadCount = 0;
+
+  for (let row of rows) {
+    const moyCell = row.cells[row.cells.length - 2];
+    const moyenne = parseFloat(moyCell.innerText.replace('%', '').trim());
+
+    if (moyenne === 100) topCount++;
+    else if (moyenne > 80 && moyenne < 100) slightlyTopCount++;
+    else if (moyenne >= 70 && moyenne <= 80) averageCount++;
+    else if (moyenne > 20 && moyenne < 70) badCount++;
+    else if (moyenne >= 0 && moyenne <= 20) veryBadCount++;
+  }
+
+  const toPct = (count) => ((count / totalRows) * 100).toFixed(2) + '%';
+
+  const tbody = document.getElementById('overview_table').querySelector('tbody');
+  tbody.innerHTML = '';
+
+	function addRow(label, count, percent, bgColor, color = '#000') {
+	  const tr = document.createElement('tr');
+	  //tr.setAttribute('style', `background-color: ${bgColor} !important; color: ${color} !important;`);
+	  tr.innerHTML = `<td>${label}</td><td>${count}</td><td>${percent}</td>`;
+	  tbody.appendChild(tr);
+	}
+
+  addRow('100%', topCount, toPct(topCount), '#28a745', '#fff');         // ✅ Vert foncé + texte blanc
+  addRow('99.99% à 80.00%', slightlyTopCount, toPct(slightlyTopCount), '#b8e994'); // ✅ Vert clair
+  addRow('79.99% à 70.00%', averageCount, toPct(averageCount), '#fff3cd');         // ✅ Jaune clair
+  addRow('69.99% à 20.00%', badCount, toPct(badCount), '#f8d7da');                 // ✅ Rouge rosé
+  addRow('19.99% à 0.00%', veryBadCount, toPct(veryBadCount), '#f5c6cb');          // ✅ Rouge foncé
+  addRow('Total:', totalRows, '100%', '#dee2e6');                                  // ✅ Gris clair
+}
+
+
+
+//FUNCTION PRE FINALISE PARTAGE TABLE 2
+function pre_finalise_partageTable2() {
+    const table = document.getElementById("partageTable2");
+    const rows = table.querySelectorAll("tbody tr");
+
+    if (!window.tsvDataGlobal || !Array.isArray(window.tsvDataGlobal)) {
+        console.error("⚠️ tsvDataGlobal est manquant ou invalide.");
+        return;
+    }
+
+    rows.forEach(row => {
+        const hitId = row.cells[1]?.textContent.trim(); // 2ème colonne = HitID
+        if (!hitId) return;
+
+        // 🔍 Filtrer les lignes TSV avec le même HITId
+        const matchedLines = window.tsvDataGlobal.filter(entry => entry.HITId === hitId);
+
+        // 🧑‍🤝‍🧑 Récupérer les WorkerId uniques
+        const workerIds = [...new Set(matchedLines.map(line => line.WorkerId).filter(Boolean))];
+
+        // 🔗 Concaténer avec pipe "|"
+        const participantsText = workerIds.join('|');
+
+        // 🧱 Créer la cellule "Participants"
+        const tdParticipants = document.createElement("td");
+        tdParticipants.textContent = participantsText;
+
+        // 🧱 Insérer la colonne juste avant "WorkerID" (colonne 4 → index 4)
+        row.insertBefore(tdParticipants, row.cells[4]);
+    });
+}
+
+
+//FINALISATION PARTAGE TABLE 2
+function finalise_partageTable2() {
+    if (!window.tsvDataGlobal || !Array.isArray(tsvDataGlobal)) {
+        alert("Données TSV non disponibles.");
+        return;
+    }
+
+    const rows = document.querySelectorAll("#partageTable2 tbody tr");
+
+    // Construction des statistiques par WorkerID
+    const workerStats = {};
+    tsvDataGlobal.forEach(row => {
+        const wid = row.WorkerId?.trim();
+        const worktime = parseFloat(row.worktime);
+
+        if (!wid || isNaN(worktime)) return;
+
+        if (!workerStats[wid]) {
+            workerStats[wid] = { volume: 0, totalTime: 0 };
+        }
+
+        workerStats[wid].volume += 1;
+        workerStats[wid].totalTime += worktime;
+    });
+
+    // Ajout des 3 colonnes manquantes à chaque ligne
+    rows.forEach((tr, index) => {
+        // Exemple de mapping : 1er QAS => 1er WorkerID
+        const workerIds = Object.keys(workerStats);
+        const wid = workerIds[index] || "";
+        const stats = workerStats[wid] || { volume: "", totalTime: "" };
+
+        const tdWorker = document.createElement("td");
+        tdWorker.textContent = wid;
+
+        const tdVolume = document.createElement("td");
+        tdVolume.textContent = stats.volume || "";
+
+        const tdTTT = document.createElement("td");
+        tdTTT.textContent = formatSecondsToHHMMSS(stats.totalTime || 0);
+
+        tr.appendChild(tdWorker);
+        tr.appendChild(tdVolume);
+        tr.appendChild(tdTTT);
+    });
+}
+
+// 🔧 Utilitaire pour convertir secondes → hh:mm:ss
+function formatSecondsToHHMMSS(seconds) {
+    seconds = Math.round(seconds);
+    const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+    const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+}
+
+
+
+
+
+
+// GESTION CHECK BOX QAS / CQ + MAJ de qasSelect
+document.addEventListener('DOMContentLoaded', () => {
+  const checkAll = document.getElementById('checkAll');
+  const options = document.querySelectorAll('.option');
+  const qasSelect = document.getElementById('qasSelect');
+
+  // 🎨 Appliquer la couleur sur chaque label selon data-color
+  const checkboxContainer = document.getElementById("checkboxContainer");
+  const labels = checkboxContainer.querySelectorAll("label");
+
+  labels.forEach(label => {
+    const input = label.querySelector("input.option");
+    if (input) {
+      const color = input.getAttribute("data-color");
+      if (color) {
+        label.style.backgroundColor = color;
+        label.style.padding = "2px 6px";
+        label.style.borderRadius = "4px";
+        label.style.margin = "2px";
+        label.style.display = "inline-block";
+      }
+    }
+  });
+
+  // 🟢 Fonction de mise à jour de <select>
+  function updateQasSelect(value) {
+    const optionToSelect = Array.from(qasSelect.options).find(opt => parseInt(opt.value) === value);
+    if (optionToSelect) qasSelect.value = optionToSelect.value;
+  }
+
+  // 🔁 Quand on coche ou décoche "Tout"
+  checkAll.addEventListener('change', () => {
+    if (checkAll.checked) {
+      options.forEach(opt => {
+        opt.checked = false;
+        opt.disabled = true;
+      });
+      updateQasSelect(7); // "Tout" → 7
+    } else {
+      options.forEach(opt => {
+        opt.disabled = false;
+      });
+      // 🟡 Recalcul immédiat selon les cases déjà cochées
+      const countChecked = Array.from(options).filter(opt => opt.checked).length;
+      if (countChecked > 0) updateQasSelect(countChecked);
+    }
+  });
+
+  // 🔁 Mise à jour dynamique si on coche individuellement
+  options.forEach(opt => {
+    opt.addEventListener('change', () => {
+      const countChecked = Array.from(options).filter(o => o.checked).length;
+      updateQasSelect(countChecked);
+    });
+  });
+});
+
+// ✅ Affichage/Masquage de la table "partageTable"
+document.getElementById("togglePartageTable").addEventListener("change", function () {
+  const table = document.getElementById("partageTable");
+  table.style.display = this.checked ? "table" : "none";
+});
+
+
+
+
+
+//copier n'importe quel Table
+// ✅ Convertit un tableau HTML en texte tabulé
+function tableToText(table) {
+  const rows = Array.from(table.rows);
+  return rows.map(row =>
+    Array.from(row.cells).map(cell => cell.textContent.trim()).join('\t')
+  ).join('\n');
+}
+
+// ✅ Affiche une notification temporaire
+function showCopyNotification(message = "Table copiée") {
+  const notif = document.getElementById("copyNotification");
+  notif.textContent = message;
+  notif.style.display = "block";
+  setTimeout(() => notif.style.display = "none", 3000);
+}
+
+// ✅ Gère le clic sur toutes les tables
+document.querySelectorAll("table").forEach(table => {
+  table.addEventListener("click", () => {
+    const text = tableToText(table);
+    navigator.clipboard.writeText(text).then(() => {
+      const tableId = table.id || "Inconnue";
+      showCopyNotification(`Table "${tableId}" copiée`);
+    }).catch(err => {
+      console.error("Erreur de copie :", err);
+      showCopyNotification("Erreur lors de la copie");
+    });
+  });
+});
+
+
+
+//FUNCTION COLORISATION TABLE PARTAGE SELON QAS OU CQ
+function coloriser_partageTable2() {
+    const partageTable2 = document.getElementById("partageTable2");
+    const rows = partageTable2.querySelectorAll("tbody tr");
+
+    // Préparer dictionnaire { QAS => couleur }
+    const qasColorMap = {};
+    document.querySelectorAll('#checkboxContainer .option').forEach(cb => {
+        const val = cb.value;
+        const color = cb.getAttribute('data-color');
+        if (val && color) qasColorMap[val] = color;
+    });
+
+    rows.forEach(row => {
+        const qasCell = row.cells[2]; // colonne CQ/QAS
+        if (!qasCell) return;
+        const qasValue = qasCell.textContent.trim();
+
+        const color = qasColorMap[qasValue];
+        if (color) {
+            // Appliquer aux 4 premières colonnes (Batch, HitID, CQ/QAS, Accord)
+            for (let i = 0; i <= 3; i++) {
+                const cell = row.cells[i];
+                if (cell) {
+                    cell.style.backgroundColor = color;
+                }
+            }
+        }
+    });
+}
+  </script>
+  <!-- ✅ Notification flottante -->
+<div id="copyNotification" style="
+  display: none;
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #2ecc71;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  z-index: 9999;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+">Table copiée</div>
+</body>
+</html>

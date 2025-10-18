@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Translittération OCR</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+  }
+  #container {
+    display: flex;
+    gap: 10px;
+  }
+  textarea {
+    width: 48%;
+    height: 400px;
+    font-family: monospace;
+    font-size: 14px;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+  #buttons {
+    margin-bottom: 10px;
+  }
+  button {
+    margin-right: 10px;
+    padding: 6px 15px;
+    font-size: 14px;
+  }
+  .hidden {
+    display: none;
+  }
+  
+/* ✅ Boutons modernisés — sauf #btnClear */
+#buttons button:not(#btnClear) {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 18px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+#buttons button:not(#btnClear):hover {
+  background-color: #0056b3;
+}
+
+/* ✅ Textarea visible (OCR brut) */
+#inputText {
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ✅ Table harmonisée avec police OCR-friendly */
+#previewTable {
+  border-collapse: collapse;
+  font-family: 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+  font-size: 15px;
+  margin-left: 10px;
+  width: 100%;
+}
+
+#previewTable th {
+  background-color: #007bff;
+  color: white;
+  padding: 8px;
+  text-align: center;
+}
+
+#previewTable td {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+}
+#previewTable td {
+  transition: background-color 0.5s ease;
+}
+#btnClear {
+  background-color: #d32f2f;  /* Rouge foncé */
+  color: white;               /* Texte blanc */
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#btnClear:hover {
+  background-color: #b71c1c;  /* Rouge encore plus foncé au survol */
+}
+#summaryHeader {
+  font-weight: bold;
+  font-size: 1.6em;
+  text-align: center;
+  background-color: yellow;
+  color: black;
+  padding: 10px;
+  border: 2px solid #999;
+  margin-bottom: 15px;
+}
+</style>
+</head>
+<body>
+<div id="summaryHeader" align="Center">Pas de données</div>
+<div id="buttons">
+  <button id="btnClean">Nettoyer</button>
+  <button id="verif" class="hidden">Verifier</button>
+  <button id="copyresult">Copier</button>
+  <button id="btnClear">Effacer</button>
+  
+</div>
+
+<div id="container">
+	
+  <textarea id="inputText" placeholder="Collez ici vos données OCR brutes..."></textarea>
+  
+  <table id="previewTable" border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-family: sans-serif; font-size: 14px;"></table>
+  <textarea id="outputText" placeholder="Résultat nettoyé..." class="hidden"></textarea>
+</div>
+
+<script>
+function removeAccents(str) {
+  const remplacements = {
+    'à':'a','á':'a','â':'a','ä':'a','ã':'a','å':'a',
+    'ç':'c','č':'c','ć':'c',
+    'è':'e','é':'e','ê':'e','ë':'e',
+    'ì':'i','í':'i','î':'i','ï':'i',
+    'ñ':'n',
+    'ò':'o','ó':'o','ô':'o','ö':'o','õ':'o',
+    'ù':'u','ú':'u','û':'u','ü':'u',
+    'ý':'y','ÿ':'y',
+    'š':'s','ß':'ss','ž':'z',
+    'œ':'oe','æ':'ae'
+  };
+  return str.normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .split('')
+            .map(c => remplacements[c] || c)
+            .join('');
+}
+
+function nettoyeur(texte) {
+	// traitement special "dm" facture manala an'le chiffre am farany ligne:
+	texte = texte.replace(/ [12](?=\r?\n)/g, '');
+	//Uniformiser espace si >=4 => atao 6 daholo
+	texte = texte.replace(/(\S) {5,}(\S)/g, '$1      $2');  // 6 espaces
+	// 2️⃣ Uniformise "x  {2,4}6" ou "X  {2,4}6" → "x 6"
+	texte = texte.replace(/\b[xX] {2,4}(?=\d)/g, match => match[0] + ' ');
+	// 3️⃣ Uniformise "6  {2,4}x" ou "6  {2,4}X" → "6 x"
+	texte = texte.replace(/(\d) {2,4}[xX]\b/g, '$1 x');
+	
+ 	// Correction : remplacer "   Uus" par " Uus" (plusieurs espaces avant un mot)
+	// Remplace tout groupe de 2 espaces ou plus suivi de "Uus" par un espace + "Uus"
+	let etape1=texte;
+	etape1 = etape1.replace(/ {3}(?=Galut)/g, ' ');
+	// Correction : remplacer "Atl.  " par "Atl. " (supprimer espaces multiples après "Atl.")
+	etape1 = etape1.replace(/Atl\.\s{2,}/g, 'Atl. ');
+	// 🧼 Étape 2 : Remplacer les espaces multiples (>= 2) par un retour à la ligne
+	etape1 = etape1.replace(/ {3,}/g, '\n');
+	texte = etape1;
+  
+
+  // Supprimer les accents et caractères spéciaux
+  texte = removeAccents(texte);
+ // ✅ 🛠️ Corrections OCR manuelles connues
+  texte = texte
+    .replace(/\bKrantonoji\b/gi, 'Kramtomoji')
+    .replace(/\bgerinas\b/gi, 'gerimas')
+    .replace(/\b0,5681\b/g, '0,568l')
+    .replace(/\b0,331\b/g, '0,33l');
+	// ** Nettoyage espaces superflus ciblé **
+	// 1) Entre "Gala" et "cena" => exactement 1 espace
+	texte = texte.replace(/(Gala) +(?=cena)/g, '$1 ');
+
+	// 2) Entre "Atl." et "Gala" => exactement 1 espace
+	texte = texte.replace(/(Atl\.) +(?=Gala)/g, '$1 ');
+  let lignes = texte.split(/\r?\n/);
+  let result = [];
+
+  // Fonction utilitaire pour tester regex case-insensitive
+	const reIgnore = [
+	  /nuol.*?-?\d{1,2}[.,]?\d{0,2}.*?galut.*?\d{1,2}[.,]?\d{0,2}/i,
+	  /nuol\.\s*-?\d{1,2}[.,]?\d{0,2}\s+galut.*?\d{1,2}[.,]?\d{0,2}/i, // 👈 ligne compacte
+	  /^ATLAIDES:$/i,
+	  /atl.*?-?\d{1,2}[.,]?\d{0,2}.*?cena.*?\d{1,2}[.,]?\d{0,2}/i,
+	  /^sie sparen.*/i,
+	  /^suteiktos naudos.*/i,
+	  /^su acio kortele sutaupete.*/i,
+	  /^pritaikytos nuolaidos.*/i,
+	  /zu zahlen/i,
+	  /^suteiktos nuolaidos:$/i,
+
+	  // 👇 Nouveaux ajouts
+	  /allah\.\s*-?\d{1,2}[.,]?\d{0,2}\s+uus\s+hind\s+-?\d{1,2}[.,]?\d{0,2}/i,
+	  /nuɔl\.\s*-?\d{1,2}[.,]?\d{0,2}\s+galut\.\s*kaina\s+-?\d{1,2}[.,]?\d{0,2}/i,
+	  /nuol\.\s*-?\d{1,2}[.,]?\d{0,2}\s+galut\.\s*kaina\s+-?\d{1,2}[.,]?\d{0,2}/i
+	];
+
+  for(let ligne of lignes) {
+    let l = ligne.trim();
+
+
+// 🔢 Partie A : Quantité (forme avec x ou *)
+if (/^.*?\b-?\d{1,3}(?:[.,]\d{1,3})?\b.*?(x|X|\*).*?\b-?\d{1,3}(?:[.,]\d{1,3})?\b.*$/.test(l)) {
+  let nombres = l.match(/-?\d{1,3}(?:[.,]\d{1,3})?/g);
+  if (nombres && nombres.length >= 2) {
+    const originalNombre1 = nombres[0];
+    const originalNombre2 = nombres[1];
+    let quant = null;
+
+    const lSansEspaces = l.replace(/\s+/g, '');
+
+    // Vérifie si un nombre est accompagné d'une unité
+    const regexUnite1 = new RegExp(`${originalNombre1.replace(',', '[.,]')}\\s*(kg|vnt|stk|gab|pakele)`, 'i');
+    const regexUniteAvant1 = new RegExp(`(kg|vnt|stk|gab|pakele)\\s*${originalNombre1.replace(',', '[.,]')}`, 'i');
+
+    const regexUnite2 = new RegExp(`${originalNombre2.replace(',', '[.,]')}\\s*(kg|vnt|stk|gab|pakele)`, 'i');
+    const regexUniteAvant2 = new RegExp(`(kg|vnt|stk|gab|pakele)\\s*${originalNombre2.replace(',', '[.,]')}`, 'i');
+
+    const hasUniteNombre1 = regexUnite1.test(l) || regexUniteAvant1.test(l);
+    const hasUniteNombre2 = regexUnite2.test(l) || regexUniteAvant2.test(l);
+
+    // Vérifie s'il y a un symbole monétaire autour du nombre
+    const isMonetaire1 = new RegExp(`${originalNombre1.replace(',', '[.,]')}\\s*[€$]`, 'i').test(l) ||
+                         new RegExp(`[€$]\\s*${originalNombre1.replace(',', '[.,]')}`, 'i').test(l);
+    const isMonetaire2 = new RegExp(`${originalNombre2.replace(',', '[.,]')}\\s*[€$]`, 'i').test(l) ||
+                         new RegExp(`[€$]\\s*${originalNombre2.replace(',', '[.,]')}`, 'i').test(l);
+
+    if (hasUniteNombre1 && !isMonetaire1) {
+      quant = originalNombre1.replace(',', '.');
+    } else if (hasUniteNombre2 && !isMonetaire2) {
+      quant = originalNombre2.replace(',', '.');
+    } else {
+      // Fallback : choisir celui qui n'est pas monétaire et qui n'a pas de décimale
+      const nb1 = originalNombre1.replace(',', '.');
+      const nb2 = originalNombre2.replace(',', '.');
+
+      if (!isMonetaire1 && !nb1.includes('.') && (isMonetaire2 || nb2.includes('.'))) {
+        quant = nb1;
+      } else if (!isMonetaire2 && !nb2.includes('.') && (isMonetaire1 || nb1.includes('.'))) {
+        quant = nb2;
+      } else if (!isMonetaire1) {
+        quant = nb1;
+      } else if (!isMonetaire2) {
+        quant = nb2;
+      } else {
+        // Dernier recours : prendre le premier
+        quant = nb1;
+      }
+    }
+
+    result.push(quant);
+    continue;
+  }
+}
+
+// 🧪 Cas spécial : quantité unique avec décimale et unité (ex: "0,240 kg" ou "0.240 kg")
+const matchQuantiteSeule = l.match(/\b(\d{1,3}[,.]\d{1,3})\s*(kg)\b/i);
+if (matchQuantiteSeule) {
+  const valeur = matchQuantiteSeule[1].replace(',', '.'); // normaliser virgule
+  // ⚠️ Exclut si c’est un entier (ex: "1 kg" → non accepté)
+  if (valeur.includes('.')) {
+    result.push(valeur);
+    continue;
+  }
+}
+
+
+
+
+	// 💰 Partie B : Prix (avec formes comme "0,48*B", "2.99A", "-0,99 A", etc.)
+	if (/^[\-\+]?\d{1,4}(?:[.,]\d{1,2})?\s*[*]?[A-Z]{1,2}$/.test(l) || /^[\-\+]?\d{1,4}(?:[.,]\d{1,2})[*]?[A-Z]{1,2}$/.test(l)) {
+	  let prixStr = l.match(/[\-\+]?\d{1,4}(?:[.,]\d{1,2})/)[0];
+	  prixStr = prixStr.replace(',', '.');
+	  let prixNum = parseFloat(prixStr);
+	  result.push(prixNum.toString());
+	  continue;
+	}
+
+    // Cas à Ignorer : on saute la ligne si elle correspond à un des patterns
+    if (reIgnore.some(rx => rx.test(l))) {
+      continue;
+    }
+
+    // Sinon : produit / texte normal
+    result.push(l);
+  }
+
+  return result.join('\n');
+}
+
+document.getElementById('btnClean').addEventListener('click', () => {
+  const input = document.getElementById('inputText').value;
+
+  if (!input.trim()) {
+    alert("Veuillez coller du texte dans la zone de gauche.");
+    return;
+  }
+
+  const output = nettoyeur(input);
+  document.getElementById('outputText').value = output;
+
+  // 🟡 Simuler un clic sur le bouton "Verifier"
+  // Cela exécutera le même code que si l'utilisateur cliquait manuellement dessus
+  document.getElementById('verif').click();
+});
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  document.getElementById('inputText').value = '';
+  document.getElementById('outputText').value = '';
+  // 🔄 Vider également le tableau de prévisualisation
+document.getElementById('previewTable').innerHTML = '';
+});
+
+//lancement du nettoyage finale
+document.getElementById('verif').addEventListener('click', () => {
+  const outputEl = document.getElementById('outputText');
+  const currentOutput = outputEl.value;
+
+  if (!currentOutput.trim()) {
+    alert("Aucun texte à vérifier. Cliquez d'abord sur Nettoyer.");
+    return;
+  }
+
+  const corrected = corrigerTriplets(currentOutput);
+  outputEl.value = corrected;
+  
+  // 📊 Appel de la fonction preview pour afficher le tableau en bas
+  preview(corrected);
+});
+
+
+
+function corrigerTriplets(text) {
+  let lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
+  let corrected = [];
+
+  for (let i = 0; i < lines.length;) {
+    const l1 = lines[i];
+    const l2 = lines[i + 1];
+    const l3 = lines[i + 2];
+
+    // 🔹 Cas spécial : quantité maltraitée (ex: "-14 x" suivi de "0.25")
+    if (l1 && l2 && /^-?\d+\s*[xX*]\s*$/.test(l1) && /^-?\d+[.,]?\d*$/.test(l2)) {
+      corrected.push(l1.replace(/\s*[xX*]\s*$/i, '')); // quantité seulement
+      i += 2;
+      continue;
+    }
+
+    // 🔸 Cas 1 : produit + quantité + prix (triplet correct)
+    if (l1 && l2 && l3 && /^-?\d+([.,]\d+)?$/.test(l2) && /^-?\d+([.,]\d+)?$/.test(l3)) {
+      corrected.push(l1);
+      corrected.push(l2);
+      corrected.push(l3);
+      i += 3;
+      continue;
+    }
+
+    // 🔸 Cas 2 : produit + prix (quantité manquante)
+    if (l1 && l2 && /^-?\d+([.,]\d+)?$/.test(l2)) {
+      corrected.push(l1);
+      corrected.push('1'); // quantité par défaut
+      corrected.push(l2);
+      i += 2;
+      continue;
+    }
+
+    // 🔸 Cas 3 : ligne isolée
+    corrected.push(l1);
+    i += 1;
+  }
+
+  // 🔧 Étape finale 1 : remplacer tous les espaces multiples par un seul espace
+  let joined = corrected.join('\n').replace(/ {2,}/g, ' ');
+
+  // 🔧 Étape finale 2 : convertir les virgules en points pour les lignes purement numériques
+  let finalLines = joined.split('\n').map(line => {
+    // Si la ligne contient au moins une lettre, on la laisse telle quelle
+    if (/[a-zA-Z]/.test(line)) return line;
+
+    // Si la ligne est un nombre avec virgule (et sans lettres), on remplace la virgule par un point
+    if (/^-?\d+,\d+$/.test(line)) {
+      return line.replace(',', '.');
+    }
+
+    return line;
+  });
+
+  return finalLines.join('\n');
+}
+
+
+function preview(data) {
+  const table = document.getElementById("previewTable");
+  table.innerHTML = ''; // 🔄 Nettoyer le tableau
+
+  const lines = data.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
+
+  let total = 0;
+  let count = 0;
+
+  // 🧮 Lire ligne par ligne par groupes de 3 (triplets)
+  for (let i = 0; i < lines.length - 2; i += 3) {
+    const produit = lines[i];
+    const quantite = lines[i + 1];
+    const prix = lines[i + 2];
+
+    const prixFloat = parseFloat(prix.replace(',', '.'));
+    if (!isNaN(prixFloat)) total += prixFloat;
+
+    count++;
+  }
+
+  // ✅ Mise à jour du résumé dans le titre HTML
+	const summaryHeader = document.getElementById('summaryHeader');
+	summaryHeader.textContent = `🧾 Nombre des lignes: ${count} | Montant Total: ${total.toFixed(2)} €`;
+
+  // 🧱 Ajouter les en-têtes
+  const header = table.insertRow();
+  ['Items', 'Qty', 'Price'].forEach(text => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    header.appendChild(th);
+  });
+
+  // 🔄 Repasser pour insérer les lignes
+  for (let i = 0; i < lines.length - 2; i += 3) {
+    const produit = lines[i];
+    const quantite = lines[i + 1];
+    const prix = lines[i + 2];
+
+    const prixFloat = parseFloat(prix.replace(',', '.'));
+    const isNegatif = !isNaN(prixFloat) && prixFloat < 0;
+
+    const row = table.insertRow();
+
+    const cellProduit = row.insertCell();
+    cellProduit.textContent = produit;
+
+    const cellQuantite = row.insertCell();
+    cellQuantite.textContent = quantite;
+    cellQuantite.style.textAlign = 'center';
+
+    const cellPrix = row.insertCell();
+    cellPrix.textContent = !isNaN(prixFloat) ? prixFloat.toFixed(2) : prix;
+    cellPrix.style.textAlign = 'right';
+
+    // 🎨 Mise en évidence si prix négatif
+    if (isNegatif) {
+      const highlightColor = '#f8c6c6'; // rouge pâle
+      [cellProduit, cellQuantite, cellPrix].forEach(cell => {
+        cell.style.backgroundColor = highlightColor;
+      });
+    }
+  }
+  //esory raha tsy mety
+    // ✅ Ajouter l'écouteur d'événement pour copier le contenu des cellules
+  table.addEventListener('click', function(event) {
+    const target = event.target;
+
+    if (target.tagName.toLowerCase() !== 'td') return;
+
+    const row = target.parentElement;
+    if (row.rowIndex === 0 || row.rowIndex === 1) return;
+
+    const text = target.textContent;
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+      //console.log(`Texte copié : "${text}"`);
+
+      // ✅ Style temporaire avec transition fluide
+      const originalColor = target.style.backgroundColor || 'transparent';
+	target.style.transition = 'background-color 0.3s ease';
+	target.style.backgroundColor = '#ffe066'; // jaune foncé doux
+
+	setTimeout(() => {
+	  target.style.backgroundColor = originalColor;
+	}, 1200);
+    }).catch(err => {
+      console.error('Erreur de copie :', err);
+    });
+  });
+
+}
+
+
+
+
+
+
+// 🎯 Ajout de raccourcis clavier Ctrl+Alt+1 = Nettoyer, Ctrl+Alt+2 = Vérifier
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.altKey && e.key === '1') {
+    e.preventDefault(); // ⛔ Empêche tout comportement par défaut
+    document.getElementById('btnClean').click();
+  }
+  if (e.ctrlKey && e.altKey && e.key === '2') {
+    e.preventDefault(); // ⛔ Empêche tout comportement par défaut
+    document.getElementById('verif').click();
+  }
+});
+
+
+
+//AJUSTEMENT RAPIDE POUR LA MISE EN page
+document.addEventListener('keydown', function (e) {
+  if (!e.ctrlKey || !e.altKey) return;
+
+  const textarea = document.getElementById('inputText');
+  const pos = textarea.selectionStart;
+
+  if (textarea !== document.activeElement) return; // S'assure que le focus est sur le textarea
+
+  const text = textarea.value;
+
+  // Trouver les espaces à gauche
+  let left = pos - 1;
+  while (left >= 0 && text[left] === ' ') {
+    left--;
+  }
+
+  // Trouver les espaces à droite
+  let right = pos;
+  while (right < text.length && text[right] === ' ') {
+    right++;
+  }
+
+  const totalSpaces = right - (left + 1);
+
+  if (totalSpaces <= 0) return; // Rien à faire si 0 ou 1 espace
+
+  // Déterminer combien d'espaces on veut insérer
+  let newSpaces;
+  if (e.key.toLowerCase() === 'd') {
+    newSpaces = ' '.repeat(10); // Ctrl+Alt+D => 6 espaces
+  } else if (e.key.toLowerCase() === 'c') {
+    newSpaces = ' '.repeat(1); // Ctrl+Alt+C => 2 espaces
+  } else {
+    return; // autre touche => on ne fait rien
+  }
+
+  // Remplacement
+  const before = text.substring(0, left + 1);
+  const after = text.substring(right);
+  const newCursorPos = before.length + newSpaces.length;
+
+  textarea.value = before + newSpaces + after;
+
+  // Repositionner le curseur juste après les nouveaux espaces
+  textarea.setSelectionRange(newCursorPos, newCursorPos);
+  e.preventDefault(); // éviter le comportement par défaut du navigateur
+});
+
+
+// 📋 Gestion du bouton "Copier"
+document.getElementById('copyresult').addEventListener('click', () => {
+  const output = document.getElementById('outputText');
+  const data = output.value.trim();
+
+  if (!data) {
+    alert("Aucune donnée à copier.");
+    return;
+  }
+
+  // Copier dans le presse-papiers
+  navigator.clipboard.writeText(data).then(() => {
+    showNotification("Données bien copiées !");
+  });
+});
+
+// 🔔 Fonction pour afficher une notification temporaire
+function showNotification(message) {
+  let notif = document.createElement('div');
+  notif.textContent = message;
+  notif.style.position = 'fixed';
+  notif.style.top = '10px';             // ⬆️ En haut
+  notif.style.right = '20px';           // 📍 À droite
+  notif.style.backgroundColor = '#4CAF50';
+  notif.style.color = 'white';
+  notif.style.padding = '10px 20px';
+  notif.style.borderRadius = '5px';
+  notif.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
+  notif.style.zIndex = '1000';
+  notif.style.fontWeight = 'bold';      // 🔠 Bien visible
+  notif.style.fontSize = '14px';        // 🔎 Légèrement agrandi
+  document.body.appendChild(notif);
+
+  setTimeout(() => {
+    notif.remove();
+  }, 3000);
+}
+
+
+
+
+
+</script>
+
+</body>
+</html>

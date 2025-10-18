@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Analyse HITId</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #111;
+    color: white;
+    padding: 20px;
+  }
+
+  h2 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  color: white;
+  text-align: center; /* <-- ajout ici */
+}
+
+  input[type="file"],
+  button {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 16px;
+    border: none;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+
+  input[type="file"] {
+    background-color: #000;
+    color: white;
+    border: 1px solid #666;
+  }
+
+  input[type="date"] {
+    background-color: #000;
+    color: white;
+    border: 1px solid #666;
+    padding: 10px;
+    font-size: 16px;
+    box-sizing: border-box;
+    appearance: auto;
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    width: auto; /* ← c’est ici qu'on annule le 100% */
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+
+  button {
+    background-color: #003366;
+    color: white;
+  }
+
+  #tableSelector {
+    display: none;
+    margin: 20px 0;
+  }
+
+  #tableSelector label {
+    margin-right: 20px;
+    font-size: 16px;
+    cursor: pointer;
+    color: white;
+  }
+
+  #tableSelector input[type="radio"] {
+    margin-right: 5px;
+    transform: scale(1.2);
+    accent-color: #003366;
+  }
+
+  table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+  table-layout: auto;
+  overflow-x: auto;
+  display: none;
+  background-color: #fff;
+  color: #000;
+  font-size: 13px; /* réduit ici */
+}
+
+table caption {
+  caption-side: top;
+  font-size: 15px; /* réduit ici */
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: white;
+  background-color: #333;
+  padding: 8px; /* légèrement réduit */
+}
+
+th {
+  background-color: #000;
+  color: white;
+  padding: 6px; /* réduit ici */
+  text-align: left;
+  font-size: 13px; /* réduit ici */
+}
+
+td {
+  padding: 5px; /* réduit ici */
+  border-bottom: 1px solid #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px; /* réduit ici */
+}
+
+  #sp_result_table {
+    display: none;
+  }
+
+  #loadingOverlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.7);
+    z-index: 9999;
+    color: white;
+    font-size: 24px;
+    text-align: center;
+    padding-top: 35vh;
+  }
+
+  #loadingOverlay img {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 10px;
+  }
+
+  #doneMessage {
+    display: none;
+    position: fixed;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: green;
+    color: white;
+    padding: 20px 40px;
+    border-radius: 8px;
+    font-size: 20px;
+    z-index: 10000;
+  }
+  
+</style>
+
+
+</head>
+<body>
+<h2>Utilitaire Spinner</h2>
+
+<div class="control-row">
+ <label for "date">Date Production: </label>
+  <input type="date" id="date_prod">
+  <input type="file" id="fileInput" accept=".tsv,.csv">
+  <button id="Doit" style="display: none;">Parser</button>
+
+</div>
+
+<!-- Boutons radio pour afficher les tableaux -->
+<div id="tableSelector">
+  <label><input type="radio" name="tableSwitch" value="concensus_attributs"> Concensus Attributs</label>
+  <label><input type="radio" name="tableSwitch" value="concensus_workerid"> Concensus WorkerID</label>
+  <label><input type="radio" name="tableSwitch" value="accuracy_workerid"> Accuracy WorkerID</label>
+</div>
+
+<!-- Sablier -->
+<div id="loadingOverlay">
+  <img id="sablierGif" src="vercel_sablier.gif" alt="Chargement..."><br>
+  Traitement en cours... <span id="progress">0%</span>
+</div>
+
+<!-- Notification de fin -->
+<div id="doneMessage">
+  ✅ Traitement terminé
+</div>
+
+<!-- TABLE: Résultat brut, toujours masqué -->
+<table id="sp_result_table">
+  <thead>
+    <tr>
+      <th>AssignmentId</th>
+      <th>WorkerId</th>
+      <th>HITId</th>
+      <th>Input.hit_title</th>
+      <th>batch_name</th>
+      <th>Input.template_type</th>
+      <th>Input.urlsLeft</th>
+      <th>Input.urlsRight</th>
+      <th>smarter_answer</th>
+      <th>juge_answer</th>
+      <th>first_image</th>
+      <th>second_image</th>
+      <th>both_images</th>
+      <th>neither</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- TABLE 1 : concensus_attributs -->
+<table id="concensus_attributs"></table>
+
+<!-- TABLE 2 : concensus_workerid -->
+<table id="concensus_workerid">
+  <caption><strong>Consensus par WorkerId</strong></caption>
+</table>
+
+<!-- TABLE 3 : accuracy_workerid -->
+<table id="accuracy_workerid">
+  <caption><strong>Précision par WorkerId</strong></caption>
+</table>
+
+  <script src="papaparse_rado.js"></script>
+  <script>
+// MASQUAGE DE TOUTES LES TABLES AU DÉBUT ET SET DATE J-1
+window.addEventListener('DOMContentLoaded', () => {
+  // Cacher toutes les tables au chargement
+  document.querySelectorAll('table').forEach(tbl => tbl.style.display = 'none');
+
+  // Définir la date à J-1 (hier)
+  const dateInput = document.getElementById('date_prod');
+  if (dateInput) {
+    const today = new Date();
+    today.setDate(today.getDate() - 1); // J-1
+    // Format YYYY-MM-DD attendu par input[type="date"]
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+  }
+});
+    let parsedData = [];
+
+    document.getElementById('fileInput').addEventListener('change', function (e) {
+	  const file = e.target.files[0];
+	  if (!file) return;
+
+	  Papa.parse(file, {
+		header: true,
+		delimiter: "\t", // TSV par défaut
+		skipEmptyLines: true,
+		complete: function (results) {
+		  parsedData = results.data;
+
+		  // ✅ Simuler automatiquement le clic sur "Parser"
+		  setTimeout(() => {
+			document.getElementById('Doit').click();
+		  }, 300); // petite pause pour fluidité
+		}
+	  });
+	});
+
+   document.getElementById('Doit').addEventListener('click', async function () {
+  if (!parsedData || parsedData.length === 0) {
+    alert("❌ Aucun fichier chargé.");
+    return;
+  }
+
+	// Afficher le sablier
+	document.getElementById('loadingOverlay').style.display = 'block';
+	document.getElementById('progress').textContent = '0%';
+
+	// Vérifier si la colonne "Answer.final_answer" existe dans parsedData
+	if (parsedData.length === 0 || !('Answer.final_answer' in parsedData[0])) {
+	  alert('❌ Le Fichier choisi n\'est pas un Fichier SPINNER');
+	  document.getElementById('loadingOverlay').style.display = 'none'; // Masquer sablier
+	  return; // Arrêter le traitement
+	}
+
+	const grouped = {};
+	parsedData.forEach(row => {
+	  const key = row['HITId'] + '||' + row['Input.hit_title'];
+	  if (!grouped[key]) grouped[key] = [];
+	  grouped[key].push(row);
+	});
+
+  const tbody = document.querySelector('#sp_result_table tbody');
+  tbody.innerHTML = '';
+  const totalGroups = Object.keys(grouped).length;
+  let currentGroup = 0;
+
+  for (const group of Object.values(grouped)) {
+    const counts = {};
+    const jugeAnswer = group[0]['Input.answer'];
+    group.forEach(r => {
+      const ans = r['Answer.final_answer'];
+      counts[ans] = (counts[ans] || 0) + 1;
+    });
+
+    const total = group.length;
+    const majoritaires = Object.keys(counts).filter(a => counts[a] >= total / 2);
+
+    group.forEach(row => {
+      const answer = row['Answer.final_answer'];
+      const isCorrect = (answer === jugeAnswer);
+      const isMajoritaire = majoritaires.includes(answer);
+      let label = '';
+      if (isCorrect && isMajoritaire) label = 'c_maj';
+      else if (isCorrect) label = 'c_min';
+      else if (isMajoritaire) label = 'i_maj';
+      else label = 'i_min';
+
+      const tr = document.createElement('tr');
+      const cols = ['AssignmentId', 'WorkerId', 'HITId', 'Input.hit_title', 'batch_name', 'Input.template_type', 'Input.urlsLeft', 'Input.urlsRight'];
+      cols.forEach(col => {
+        const td = document.createElement('td');
+        td.textContent = row[col] || '';
+        tr.appendChild(td);
+      });
+
+      const ansTD = document.createElement('td');
+      ansTD.textContent = answer;
+      tr.appendChild(ansTD);
+
+      const jugeTD = document.createElement('td');
+      jugeTD.textContent = jugeAnswer;
+      tr.appendChild(jugeTD);
+
+      ['first_image', 'second_image', 'both_images', 'neither'].forEach(opt => {
+        const td = document.createElement('td');
+        td.textContent = (opt === answer) ? label : '';
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    currentGroup++;
+    const percent = Math.round((currentGroup / totalGroups) * 100);
+    document.getElementById('progress').textContent = percent + '%';
+    await sleep(30);
+  }
+
+  await sleep(500); // pause avant traitements
+  await simulerTraitementBoutons(); // clique simulé
+
+  // Fin : cacher le sablier et montrer le message
+  document.getElementById('loadingOverlay').style.display = 'none';
+  const msg = document.getElementById('doneMessage');
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 3000);
+});
+
+// Simuler le clic sur les trois boutons
+async function simulerTraitementBoutons() {
+  document.getElementById('progress').textContent = 'Traitement Attributs...';
+  await sleep(300);
+  fillConcensusAttributs();
+
+  document.getElementById('progress').textContent = 'Traitement Worker...';
+  await sleep(300);
+  calculateConsensusWorker();
+
+  document.getElementById('progress').textContent = 'Traitement Accuracy...';
+  await sleep(300);
+  calculateAccuracyWorkerID();
+
+  await sleep(300);
+
+  // ➕ Affiche les boutons radio pour afficher les tableaux
+  document.getElementById('tableSelector').style.display = 'block';
+}
+
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+	
+// CALCUL CONCENSUS PAR Attributs
+function fillConcensusAttributs() {
+  const table = document.getElementById('sp_result_table');
+  const consensusTable = document.getElementById('concensus_attributs');
+  consensusTable.innerHTML = ''; // Réinitialise tout le tableau
+
+  const thead = document.createElement('thead');
+  const tbody = document.createElement('tbody');
+  consensusTable.appendChild(thead);
+  consensusTable.appendChild(tbody);
+
+  const headers = [
+    'Years', 'Months', 'Weeks', 'Date', 'Attributs',
+    'Correct Majority', 'Taux %',
+    'Correct Minority', 'Taux %',
+    'Incorrect Majority', 'Taux %',
+    'Incorrect Minority', 'Taux %',
+    'Total', 'Consensus Correctness (%)', 'Attribute Error Rate (%)'
+  ];
+
+  const headRow = document.createElement('tr');
+  headers.forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+
+  const dateInput = document.getElementById('date_prod');
+  if (!dateInput || !dateInput.value) {
+    alert("Veuillez sélectionner une date.");
+    return;
+  }
+
+  const selectedDate = new Date(dateInput.value);
+  const yearStr = selectedDate.getFullYear();
+  const weekNum = getWeekNumber(selectedDate);
+  const months = ['janvier','fevrier','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const monthStr = months[selectedDate.getMonth()] + '-' + yearStr;
+  const formattedDate = selectedDate.toLocaleDateString('fr-FR');
+
+  const attributs = ['first_image', 'second_image', 'both_images', 'neither'];
+  const colHeaders = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+  const colIndexes = attributs.map(attr => colHeaders.indexOf(attr));
+  if (colIndexes.some(i => i === -1)) {
+    console.error("Certains attributs ne sont pas présents dans les colonnes.");
+    return;
+  }
+
+  const statsGlobal = {
+    correctMajority: 0,
+    correctMinority: 0,
+    incorrectMajority: 0,
+    incorrectMinority: 0,
+    total: 0
+  };
+
+  attributs.forEach((attr, aIndex) => {
+    const stat = {
+      correctMajority: 0,
+      correctMinority: 0,
+      incorrectMajority: 0,
+      incorrectMinority: 0,
+      total: 0
+    };
+
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(tr => {
+      const cell = tr.cells[colIndexes[aIndex]];
+      if (!cell) return;
+
+      const label = cell.textContent.trim();
+      if (!label) return;
+
+      if (label === 'c_maj') stat.correctMajority++;
+      else if (label === 'c_min') stat.correctMinority++;
+      else if (label === 'i_maj' || label === 'missing_maj') stat.incorrectMajority++;
+      else if (label === 'i_min' || label === 'missing_min') stat.incorrectMinority++;
+
+      stat.total++;
+    });
+
+    // Mise à jour global
+    statsGlobal.correctMajority += stat.correctMajority;
+    statsGlobal.correctMinority += stat.correctMinority;
+    statsGlobal.incorrectMajority += stat.incorrectMajority;
+    statsGlobal.incorrectMinority += stat.incorrectMinority;
+    statsGlobal.total += stat.total;
+
+    // Affichage ligne
+    const row = document.createElement('tr');
+    [
+      yearStr, monthStr, weekNum, formattedDate, attr,
+      stat.correctMajority, formatPct(stat.correctMajority, stat.total),
+      stat.correctMinority, formatPct(stat.correctMinority, stat.total),
+      stat.incorrectMajority, formatPct(stat.incorrectMajority, stat.total),
+      stat.incorrectMinority, formatPct(stat.incorrectMinority, stat.total),
+      stat.total,
+      formatPct(stat.correctMajority + stat.correctMinority, stat.total),
+      formatPct(stat.incorrectMajority + stat.incorrectMinority, stat.total)
+    ].forEach(txt => {
+      const td = document.createElement('td');
+      td.textContent = txt;
+      row.appendChild(td);
+    });
+
+    tbody.appendChild(row);
+  });
+
+  // Ligne TOTAL
+  const rowTotal = document.createElement('tr');
+  [
+    "", "", "", "", "Total",
+    statsGlobal.correctMajority, formatPct(statsGlobal.correctMajority, statsGlobal.total),
+    statsGlobal.correctMinority, formatPct(statsGlobal.correctMinority, statsGlobal.total),
+    statsGlobal.incorrectMajority, formatPct(statsGlobal.incorrectMajority, statsGlobal.total),
+    statsGlobal.incorrectMinority, formatPct(statsGlobal.incorrectMinority, statsGlobal.total),
+    statsGlobal.total,
+    formatPct(statsGlobal.correctMajority + statsGlobal.correctMinority, statsGlobal.total),
+    formatPct(statsGlobal.incorrectMajority + statsGlobal.incorrectMinority, statsGlobal.total)
+  ].forEach(txt => {
+    const td = document.createElement('td');
+    td.textContent = txt;
+    rowTotal.appendChild(td);
+  });
+
+  tbody.appendChild(rowTotal);
+
+  // Utils
+  function formatPct(n, d) {
+    return d > 0 ? ((n * 100) / d).toFixed(2).replace('.', ',') + '%' : '0,00%';
+  }
+
+  function getWeekNumber(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  }
+}
+
+//CALCULE CONCENSUS WORKERID
+function calculateConsensusWorker() {
+    const resultTable = document.getElementById('sp_result_table');
+    if (!sp_result_table) {
+        console.error('Table with id "sp_result_table" not found.');
+        return;
+    }
+
+    const headers = Array.from(sp_result_table.querySelectorAll('th')).map(th => th.innerText.trim());
+
+    if (headers.indexOf('WorkerId') === -1) {
+        console.error('Column "WorkerId" not found.');
+        return;
+    }
+
+    const data = Array.from(resultTable.querySelectorAll('tbody tr')).map((row, rowIndex) => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        const workeridCell = cells[headers.indexOf('WorkerId')];
+
+        if (!workeridCell) {
+            console.error(`WorkerId cell is missing in row ${rowIndex + 1}`);
+            return null;
+        }
+
+        const rowData = {};
+        headers.slice(headers.indexOf('juge_answer') + 1).forEach(attr => {
+            const cell = cells[headers.indexOf(attr)];
+            if (!cell) {
+                console.error(`Cell for attribute '${attr}' is missing in row ${rowIndex + 1}`);
+            }
+            rowData[attr] = cell?.innerText.trim() || '';
+        });
+
+        return {
+            workerid: workeridCell.innerText.trim(),
+            ...rowData
+        };
+    }).filter(Boolean);
+
+    const summary = {};
+    data.forEach(row => {
+        if (!summary[row.workerid]) {
+            summary[row.workerid] = {
+                correct_majority: 0,
+                correct_minority: 0,
+                incorrect_majority: 0,
+                incorrect_minority: 0,
+                total: 0
+            };
+        }
+
+        Object.values(row).forEach(value => {
+            if (value.includes('c_maj')) summary[row.workerid].correct_majority++;
+            if (value.includes('c_min')) summary[row.workerid].correct_minority++;
+            if (value.includes('i_maj') || value.includes('missing_maj')) summary[row.workerid].incorrect_majority++;
+            if (value.includes('i_min') || value.includes('missing_min')) summary[row.workerid].incorrect_minority++;
+        });
+
+        summary[row.workerid].total =
+            summary[row.workerid].correct_majority +
+            summary[row.workerid].correct_minority +
+            summary[row.workerid].incorrect_majority +
+            summary[row.workerid].incorrect_minority;
+    });
+
+    const totalCorrectMajority = Object.values(summary).reduce((sum, row) => sum + row.correct_majority, 0);
+    const totalCorrectMinority = Object.values(summary).reduce((sum, row) => sum + row.correct_minority, 0);
+    const totalIncorrectMajority = Object.values(summary).reduce((sum, row) => sum + row.incorrect_majority, 0);
+    const totalIncorrectMinority = Object.values(summary).reduce((sum, row) => sum + row.incorrect_minority, 0);
+    const grandTotal = totalCorrectMajority + totalCorrectMinority + totalIncorrectMajority + totalIncorrectMinority;
+
+    const table = document.getElementById('concensus_workerid');
+    table.innerHTML = ''; // Reset table content
+
+    // 🔍 Lire la date et index
+    const dateInput = document.getElementById('date_prod');
+
+    let yearStr = '', weekNum = '', monthStr = '', formattedDate = '', indexValue = '';
+    if (dateInput && dateInput.value) {
+        const selectedDate = new Date(dateInput.value);
+        const janFirst = new Date(selectedDate.getFullYear(), 0, 1);
+        const dayDiff = (selectedDate - janFirst + ((janFirst.getDay() + 6) % 7) * 86400000) / 86400000;
+        weekNum = Math.ceil(dayDiff / 7);
+
+        const months = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+        monthStr = months[selectedDate.getMonth()] + '-' + selectedDate.getFullYear();
+        formattedDate = selectedDate.toLocaleDateString('fr-FR');
+        yearStr = selectedDate.getFullYear().toString();
+    }
+
+
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    const headerRow = document.createElement('tr');
+    [
+        'Years', 'Months', 'Weeks', 'Date', 'workerid',
+        'Correct Majority', 'Taux %',
+        'Correct Minority', 'Taux %',
+        'Incorrect Majority', 'Taux %',
+        'Incorrect Minority', 'Taux %',
+        'Total', 'Consensus Correctness (%)', 'Attribute Error Rate (%)'
+    ].forEach(text => {
+        const th = document.createElement('th');
+        th.innerText = text;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    Object.entries(summary).forEach(([workerid, stats]) => {
+        const {
+            correct_majority, correct_minority,
+            incorrect_majority, incorrect_minority, total
+        } = stats;
+
+        const row = document.createElement('tr');
+        const correctMajorityPercentage = grandTotal > 0 ? formatPercentage(correct_majority * 100 / grandTotal) : '0,00%';
+        const correctMinorityPercentage = grandTotal > 0 ? formatPercentage(correct_minority * 100 / grandTotal) : '0,00%';
+        const incorrectMajorityPercentage = grandTotal > 0 ? formatPercentage(incorrect_majority * 100 / grandTotal) : '0,00%';
+        const incorrectMinorityPercentage = grandTotal > 0 ? formatPercentage(incorrect_minority * 100 / grandTotal) : '0,00%';
+
+        const consensusCorrectness = total > 0 ? formatPercentage((correct_majority + correct_minority) * 100 / (totalCorrectMajority + totalCorrectMinority)) : '0,00%';
+        const errorRate = total > 0 ? formatPercentage((incorrect_majority + incorrect_minority) * 100 / (totalIncorrectMajority + totalIncorrectMinority)) : '0,00%';
+
+        [
+            yearStr, monthStr, weekNum, formattedDate, workerid,
+            correct_majority, correctMajorityPercentage,
+            correct_minority, correctMinorityPercentage,
+            incorrect_majority, incorrectMajorityPercentage,
+            incorrect_minority, incorrectMinorityPercentage,
+            formatTotal(total), consensusCorrectness, errorRate
+        ].forEach(text => {
+            const td = document.createElement('td');
+            td.innerText = text;
+            row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+    });
+
+    const footerRow = document.createElement('tr');
+    const consensusTotalCorrectness = formatPercentage((totalCorrectMajority + totalCorrectMinority) * 100 / grandTotal);
+    const consensusTotalErrorRate = formatPercentage((totalIncorrectMajority + totalIncorrectMinority) * 100 / grandTotal);
+
+    [
+        "", "", "", "", 'Total',
+        formatTotal(totalCorrectMajority), formatPercentage(totalCorrectMajority * 100 / grandTotal),
+        formatTotal(totalCorrectMinority), formatPercentage(totalCorrectMinority * 100 / grandTotal),
+        formatTotal(totalIncorrectMajority), formatPercentage(totalIncorrectMajority * 100 / grandTotal),
+        formatTotal(totalIncorrectMinority), formatPercentage(totalIncorrectMinority * 100 / grandTotal),
+        formatTotal(grandTotal), consensusTotalCorrectness, consensusTotalErrorRate
+    ].forEach(text => {
+        const td = document.createElement('td');
+        td.innerText = text;
+        footerRow.appendChild(td);
+    });
+
+    tbody.appendChild(footerRow);
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    // Utilitaires
+    function formatPercentage(val) {
+        return parseFloat(val).toFixed(2).replace('.', ',') + '%';
+    }
+
+    function formatTotal(val) {
+        return Number.isInteger(val) ? val : Math.round(val);
+    }
+}
+
+//CALCUL ACCURACY WORKERID
+function calculateAccuracyWorkerID() {
+    const resultTable = document.getElementById('sp_result_table');
+    if (!resultTable) {
+        console.error('Table with id "sp_result_table" not found.');
+        return;
+    }
+
+    const table = document.getElementById('accuracy_workerid');
+    if (!table) {
+        console.error('Table with id "accuracy_workerid" not found.');
+        return;
+    }
+
+    const dateInput = document.getElementById('date_prod');
+
+    let yearStr = '', weekNum = '', monthStr = '', formattedDate = '';
+    if (dateInput && dateInput.value) {
+        const selectedDate = new Date(dateInput.value);
+        const janFirst = new Date(selectedDate.getFullYear(), 0, 1);
+        const dayDiff = (selectedDate - janFirst + ((janFirst.getDay() + 6) % 7) * 86400000) / 86400000;
+        weekNum = Math.ceil(dayDiff / 7);
+
+        const months = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+        monthStr = months[selectedDate.getMonth()] + '-' + selectedDate.getFullYear();
+        formattedDate = selectedDate.toLocaleDateString('fr-FR');
+        yearStr = selectedDate.getFullYear().toString();
+    }
+
+    // Préparer les index
+    const headers = Array.from(resultTable.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    const workerIdIndex = headers.indexOf("WorkerId");
+
+    if (workerIdIndex === -1) {
+        console.error("Colonne 'WorkerId' non trouvée.");
+        return;
+    }
+
+    const attributeStartIndex = workerIdIndex + 1;
+
+    const rows = resultTable.querySelectorAll('tbody tr');
+    const workerSummary = {};
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length <= workerIdIndex) return;
+
+        const workerid = cells[workerIdIndex].textContent.trim();
+        if (!workerid) return;
+
+        if (!workerSummary[workerid]) {
+            workerSummary[workerid] = { Correct: 0, Incorrect: 0 };
+        }
+
+        for (let i = attributeStartIndex; i < cells.length; i++) {
+            const value = cells[i].textContent.trim();
+            if (value === 'c_maj' || value === 'c_min') {
+                workerSummary[workerid].Correct += 1;
+                totalCorrect += 1;
+            } else if (value === 'i_maj' || value === 'i_min') {
+                workerSummary[workerid].Incorrect += 1;
+                totalIncorrect += 1;
+            }
+        }
+    });
+
+    // Reset and rebuild table
+    table.innerHTML = '';
+    const thead = document.createElement('thead');
+    const tbody = document.createElement('tbody');
+
+    const headerRow = document.createElement('tr');
+    [
+        'Years', 'Months', 'Weeks', 'Date',
+        'WorkerId', 'Correct', 'Incorrect',
+        'Total Attributs', 'Accuracy (%)', 'Error Rate (%)'
+    ].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    Object.entries(workerSummary).forEach(([workerid, summary]) => {
+        const total = summary.Correct + summary.Incorrect;
+        const accuracy = total > 0 ? formatPercentage((summary.Correct / total) * 100) : '0,00%';
+        const errorRate = total > 0 ? formatPercentage((summary.Incorrect / total) * 100) : '0,00%';
+
+        const row = document.createElement('tr');
+        [
+            yearStr, monthStr, weekNum, formattedDate,
+            workerid, summary.Correct, summary.Incorrect,
+            total.toString(), accuracy, errorRate
+        ].forEach(text => {
+            const td = document.createElement('td');
+            td.textContent = text;
+            row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+    });
+
+    // Footer global
+    const totalAll = totalCorrect + totalIncorrect;
+    const overallAccuracy = totalAll > 0 ? formatPercentage((totalCorrect / totalAll) * 100) : '0,00%';
+    const overallError = totalAll > 0 ? formatPercentage((totalIncorrect / totalAll) * 100) : '0,00%';
+
+    const footerRow = document.createElement('tr');
+    [
+        "", "", "", "",
+        'Total général', totalCorrect, totalIncorrect,
+        totalAll.toString(), overallAccuracy, overallError
+    ].forEach(text => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        footerRow.appendChild(td);
+    });
+
+    tbody.appendChild(footerRow);
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    function formatPercentage(val) {
+        return val.toFixed(2).replace('.', ',') + '%';
+    }
+}
+//AFFICHAGE DES TABLES CREES
+document.querySelectorAll('input[name="tableSwitch"]').forEach(radio => {
+  radio.addEventListener('change', function () {
+    const selectedId = this.value;
+
+    // Masquer tous les tableaux
+    ['concensus_attributs', 'concensus_workerid', 'accuracy_workerid'].forEach(id => {
+      const table = document.getElementById(id);
+      if (table) table.style.display = 'none';
+    });
+
+    // Afficher le tableau sélectionné
+    const selectedTable = document.getElementById(selectedId);
+    if (selectedTable) selectedTable.style.display = 'table';
+  });
+});
+
+
+//GESTION COPIE COLLER Table
+
+  document.querySelectorAll('table').forEach(table => {
+    table.addEventListener('click', function () {
+      const range = document.createRange();
+      range.selectNode(table);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      try {
+        document.execCommand('copy');
+        selection.removeAllRanges();
+        showCopyNotification('📋 Table copiée !');
+      } catch (err) {
+        alert("❌ La copie a échoué.");
+      }
+    });
+  });
+
+  function showCopyNotification(msg) {
+    const notif = document.createElement('div');
+    notif.textContent = msg;
+    notif.style.position = 'fixed';
+    notif.style.top = '20px';
+    notif.style.left = '50%';
+    notif.style.transform = 'translateX(-50%)';
+    notif.style.background = '#333';
+    notif.style.color = 'white';
+    notif.style.padding = '10px 20px';
+    notif.style.borderRadius = '5px';
+    notif.style.zIndex = '9999';
+    notif.style.fontSize = '16px';
+    document.body.appendChild(notif);
+
+    setTimeout(() => {
+      notif.remove();
+    }, 2000);
+  }
+
+  </script>
+</body>
+</html>

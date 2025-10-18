@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consensus Tools for IRR</title>
+  <script src="papaparse_rado.js"></script>
+  <style>
+  /* Style global du corps */
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background-color: #f4f4f4;
+    padding: 20px;
+  }
+
+  /* Titres */
+  h1, h2 {
+    color: #333;
+    font-size: 24px;
+    margin: 20px 0;
+  }
+
+  /* Style des tableaux */
+  table {
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 1000px;
+  }
+
+  th, td {
+    padding: 5px 10px; /* Réduction du padding pour ajuster la hauteur */
+    text-align: center;
+    font-size: 14px;
+  }
+
+  th {
+    background-color: #333;
+    color: white;
+  }
+
+  td {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Affiche '...' si le texte dépasse */
+    white-space: nowrap; /* Empêche le texte de se dérouler */
+  }
+
+  /* Colonne Source.name */
+  td:first-child { /* Cible la première colonne (Source.name) */
+    width: 120px; /* Limite la largeur pour éviter le texte trop long */
+    text-align: left;
+  }
+
+  tr:nth-child(even) td {
+    background-color: #f9f9f9;
+  }
+
+  tr:hover td {
+    background-color: #f1f1f1;
+  }
+
+  /* Style des champs de saisie et boutons */
+  input, select, button {
+    padding: 10px 15px;
+    margin: 10px 5px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    outline: none;
+  }
+
+  input[type="file"] {
+    padding: 5px;
+  }
+  #fileNameDisplay {
+    margin-left: 10px;
+    font-weight: bold;
+    color: #333;
+}
+
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  button:hover {
+    background-color: #0056b3;
+  }
+
+  /* Sélecteur QAS */
+  #qasSelect {
+    width: 60px;
+  }
+
+  /* Hauteur de la ligne à 10px */
+  tr {
+    height: 10px; /* Ajustement de la hauteur de ligne */
+  }
+
+  /* Sélecteur de partage */
+  #partageTable {
+    margin-top: 20px;
+  }
+
+  #partageTable thead th {
+    background-color: #007bff;
+    color: white;
+  }
+
+  #partageTable td, #partageTable th {
+    padding: 10px;
+  }
+
+  /* Cacher la table resultTable par défaut */
+  #resultTable {
+    display: none; /* Cache le tableau */
+  }
+  
+  /* Style spécifique pour la table partageTable */
+#partageTable td:first-child, 
+#partageTable td:nth-child(3), /* Cible aussi les autres colonnes QAS_N si nécessaire */
+#partageTable td:nth-child(5), 
+#partageTable td:nth-child(7), 
+#partageTable td:nth-child(9), 
+#partageTable td:nth-child(11) {
+  max-width: 120px; /* Ajustez selon le besoin */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Tronquer le texte */
+  white-space: nowrap;
+}
+/* Ajuster la largeur de la colonne "Accord" dans partageTable */
+#partageTable td:nth-child(2),
+#partageTable td:nth-child(4),
+#partageTable td:nth-child(6),
+#partageTable td:nth-child(8),
+#partageTable td:nth-child(10) {
+  width: 10; /* Ajustement automatique */
+  min-width: 80px; /* Largeur minimale pour éviter l'écrasement */
+  max-width: 120px; /* Évite que la colonne soit trop large */
+  white-space: nowrap; /* Empêche le retour à la ligne */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Affiche "..." si le texte dépasse */
+}
+
+
+</style>
+
+
+
+</head>
+<body>
+  <h1>Consensus Rate and Batch Sharing Tool</h1>
+  <input type="file" id="fileInput" accept=".tsv" />
+  <button id="processButton">Process TSV</button>
+  <button id="showConsensusButton">Show Consensus</button>
+
+  <table border="1" id="resultTable">
+    <thead>
+      <tr>
+        <th>Source.name</th>
+        <th>AssignmentId</th>
+        <th>HITId</th>
+        <th>WorkerId</th>
+        <th>asin1</th>
+        <th>asin2</th>
+        <th>asin3</th>
+        <th>asin4</th>
+        <th>asin5</th>
+        <th>asin6</th>
+        <th>asin7</th>
+        <th>asin8</th>
+        <th>asin9</th>
+        <th>asin10</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<label for="qasSelect">Nombre de QAS :</label>
+<select id="qasSelect">
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+</select>
+<div><button id="shareButton">Partager</button><button id="copy_partage">Copy Partage</button></div>
+
+<table id="partageTable" border="1">
+    <thead>
+        <tr>
+            <th>QAS traitant:</th>
+			<th>Accord:</th>
+        </tr>
+        <tr>
+            <th>Moyenne:</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+  <h2>Consensus Table</h2>
+  <table border="1" id="consensusTable">
+    <thead>
+      <tr>
+        <th>Source.name</th>
+        <th>HITId</th>
+        <th>asin1</th>
+        <th>asin2</th>
+        <th>asin3</th>
+        <th>asin4</th>
+        <th>asin5</th>
+        <th>asin6</th>
+        <th>asin7</th>
+        <th>asin8</th>
+        <th>asin9</th>
+        <th>asin10</th>
+        <th>Moyenne</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  
+
+
+  <script>
+    document.getElementById('processButton').addEventListener('click', () => {
+    const fileInput = document.getElementById('fileInput');
+    if (!fileInput.files.length) {
+        alert('Veuillez sélectionner un fichier TSV.');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        worker: true, // Utilisation de Web Workers pour les fichiers volumineux
+        complete: (result) => {
+            processTSV(result.data);
+        },
+    });
+});
+
+function processTSV(data) {
+    const resultTableBody = document.querySelector('#resultTable tbody');
+    resultTableBody.innerHTML = ''; // Nettoyer les résultats précédents
+    const fragment = document.createDocumentFragment(); // Meilleure performance DOM
+
+    data.forEach(row => {
+        if (!row['Answer.output_data']) return; // Vérification avant JSON.parse
+        let outputData;
+        try {
+            outputData = JSON.parse(row['Answer.output_data']);
+        } catch (e) {
+            return; // Ignore les lignes avec JSON invalide
+        }
+
+        const asins = new Array(10).fill('');
+        let index = 0;
+        for (const asin in outputData) {
+            if (index >= 10) break;
+            asins[index] = Object.keys(outputData[asin])
+                .filter(key => outputData[asin][key] === true)
+                .join(',');
+            index++;
+        }
+
+        // Création de la ligne optimisée
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>${row['Source.name'] || ''}</td>
+            <td>${row['AssignmentId'] || ''}</td>
+            <td>${row['HITId'] || ''}</td>
+            <td>${row['WorkerId'] || ''}</td>
+            ${asins.map(asin => `<td>${asin}</td>`).join('')}
+        `;
+        fragment.appendChild(newRow);
+    });
+
+    resultTableBody.appendChild(fragment); // Ajout optimisé au DOM
+    showNotification("Table de Résultat Créée");
+}
+
+function showNotification(message) {
+    const notification = document.createElement("div");
+    Object.assign(notification.style, {
+        position: "fixed",
+        top: "20px",
+        right: "20px",
+        backgroundColor: "green",
+        color: "white",
+        padding: "10px",
+        borderRadius: "5px",
+        fontWeight: "bold",
+        boxShadow: "0px 0px 10px rgba(0, 0, 0, 0.2)"
+    });
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => notification.remove(), 3000);
+}
+
+
+
+
+// CALCUL CONSENSUS PERCENTAGE
+
+document.getElementById('showConsensusButton').addEventListener('click', () => {
+  const resultTableBody = document.querySelector('#resultTable tbody');
+  const consensusTableBody = document.querySelector('#consensusTable tbody');
+
+  if (!resultTableBody || resultTableBody.children.length === 0) {
+    alert('Lancer d\'abord Process pour générer le tableau des résultats.');
+    return;
+  }
+
+  const rows = Array.from(resultTableBody.children);
+  const groupedByHITId = {};
+
+  // Grouper les lignes par HITId
+  rows.forEach(row => {
+    const cells = row.children;
+    const HITId = cells[2].textContent;
+    const asins = Array.from(cells).slice(4, 14).map(cell => cell.textContent.split(',').map(a => a.trim()));
+
+    if (!groupedByHITId[HITId]) {
+      groupedByHITId[HITId] = [];
+    }
+    groupedByHITId[HITId].push(asins);
+  });
+
+  consensusTableBody.innerHTML = ''; // Effacer les données existantes dans la table des consensus
+
+  // Calculer le consensus pour chaque HITId
+  Object.entries(groupedByHITId).forEach(([HITId, groups]) => {
+    const sourceName = rows.find(row => row.children[2].textContent === HITId).children[0].textContent;
+    const consensusPercentages = [];
+    let totalPercentage = 0;
+    let validColumnsCount = 0; // Compte des colonnes valides (non vides)
+
+    for (let i = 0; i < 10; i++) {
+      const attributeCounts = {};
+      const minorAttributeCounts = {}; // Compte des attributs minoritaires
+
+      // Compter la fréquence des attributs pour la colonne
+      groups.forEach(group => {
+        group[i].forEach(attribute => {
+          if (attribute) { // Ignorer les valeurs vides
+            attributeCounts[attribute] = (attributeCounts[attribute] || 0) + 1;
+          }
+        });
+      });
+
+      // Si tous les attributs sont vides, on passe à la colonne suivante
+      if (Object.keys(attributeCounts).length === 0) {
+        consensusPercentages.push(''); // Laisser la cellule vide
+        continue;
+      }
+
+      // Gestion des attributs spéciaux
+      const specialAttributes = ["possible_substitute", "exact_match", "irrelevant", "cannot_judge"];
+      const specialCounts = {};
+
+      specialAttributes.forEach(attr => {
+        specialCounts[attr] = attributeCounts[attr] || 0;
+      });
+
+      // Déterminer l'attribut spécial majoritaire et minoritaire
+      const sortedSpecialCounts = Object.entries(specialCounts).sort((a, b) => b[1] - a[1]);
+      const majoritySpecial = sortedSpecialCounts.length > 0 ? sortedSpecialCounts[0] : null;
+      const minoritySpecial = sortedSpecialCounts.length > 1 ? sortedSpecialCounts[sortedSpecialCounts.length - 1] : null;
+
+      // Ajouter l'attribut spécial majoritaire au totalMajorityCount
+      let totalMajorityCount = 0;
+      const totalLines = groups.length;
+      const halfOfTotalLines = totalLines / 2;
+      let minorityAttributes = [];
+
+      const sortedCounts = Object.entries(attributeCounts).sort((a, b) => b[1] - a[1]);
+      sortedCounts.forEach(([attribute, count]) => {
+        if (count >= halfOfTotalLines) {
+          totalMajorityCount += count;
+        } else {
+          minorityAttributes.push(attribute);
+          minorAttributeCounts[attribute] = count;
+        }
+      });
+
+      if (majoritySpecial && majoritySpecial[1] >= halfOfTotalLines) {
+        totalMajorityCount += majoritySpecial[1];
+      }
+      if (minoritySpecial) {
+        minorAttributeCounts[minoritySpecial[0]] = minoritySpecial[1];
+      }
+
+      const totalLinesWithoutMinorities = Object.values(minorAttributeCounts).reduce((acc, count) => acc + count, 0);
+      const percentage = totalMajorityCount > 0
+        ? ((totalMajorityCount + totalLinesWithoutMinorities) / (totalLines * Object.keys(attributeCounts).length)) * 100
+        : 0;
+
+      totalPercentage += percentage;
+      validColumnsCount++;
+      consensusPercentages.push(`${percentage.toFixed(2)}%`);
+    }
+
+    // Calcul de la moyenne
+    const moyenne = validColumnsCount > 0 ? (totalPercentage / validColumnsCount).toFixed(2) + '%' : '';
+
+    // Déterminer la couleur de fond en fonction de la valeur de la moyenne
+    let moyennePourcentage = parseFloat(moyenne);
+    let moyenneColor = moyennePourcentage >= 99 ? 'lightgreen' :
+                       moyennePourcentage >= 80 ? 'lightyellow' : 
+                       moyennePourcentage > 0 ? 'lightcoral' : 'white';
+
+    // Création de la ligne avec colorisation
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+      <td>${sourceName}</td>
+      <td>${HITId}</td>
+      ${consensusPercentages.map(value => {
+        let percentage = parseFloat(value);
+        let color = percentage >= 99 ? 'lightgreen' :
+                    percentage >= 80 ? 'lightyellow' : 
+                    percentage > 0 ? 'lightcoral' : 'white';
+        return `<td style="background-color:${color}">${value}</td>`;
+      }).join('')}
+      <td style="background-color:${moyenneColor}; font-weight:bold;">${moyenne}</td>
+    `;
+    
+    consensusTableBody.appendChild(newRow);
+  });
+});
+
+//PARTAGE HITID PAR QAS TRAITANT
+document.getElementById("shareButton").addEventListener("click", function () {
+    const consensusTable = document.getElementById("consensusTable");
+    if (!consensusTable || consensusTable.rows.length < 2) {
+        alert("Lancer d'abord le consensus table");
+        return;
+    }
+
+    const qasCount = parseInt(document.getElementById("qasSelect").value);
+    const partageTable = document.getElementById("partageTable");
+
+    partageTable.innerHTML = `
+        <thead>
+            <tr id="qasHeader"></tr>
+        </thead>
+        <tbody id="partageBody"></tbody>
+    `;
+
+    const rows = Array.from(consensusTable.rows).slice(1);
+    const hitData = rows.map(row => {
+        const moyenneCell = row.cells[row.cells.length - 1].textContent.trim();
+        const moyenne = parseFloat(moyenneCell.replace("%", ""));
+        
+        return {
+            hitId: row.cells[1].textContent.trim(),
+            moyenne: isNaN(moyenne) ? null : moyenne // Remplace les valeurs invalides par null
+        };
+    }).filter(hit => hit.moyenne !== null); // Filtrer les lignes avec une moyenne invalide
+
+    if (hitData.length === 0) {
+        alert("Aucune donnée valide disponible pour le partage.");
+        return;
+    }
+
+    // Trier les HITs par ordre décroissant de moyenne
+    hitData.sort((a, b) => b.moyenne - a.moyenne);
+
+    // Création de l'en-tête du tableau
+    const qasHeader = document.getElementById("qasHeader");
+    for (let i = 1; i <= qasCount; i++) {
+        const thQAS = document.createElement("th");
+        thQAS.textContent = `QAS_${i}`;
+        qasHeader.appendChild(thQAS);
+
+        const thAccord = document.createElement("th");
+        thAccord.textContent = `Accord`;
+        qasHeader.appendChild(thAccord);
+    }
+
+    const partageBody = document.getElementById("partageBody");
+
+    // Répartition des HITs
+    let qasDistribution = Array.from({ length: qasCount }, () => []);
+    let qasSums = new Array(qasCount).fill(0);
+
+    hitData.forEach((hit) => {
+        let minIndex = qasSums.indexOf(Math.min(...qasSums));
+        qasDistribution[minIndex].push(hit);
+        qasSums[minIndex] += hit.moyenne;
+    });
+
+    // Déterminer le nombre maximal de lignes
+    const maxRows = Math.max(...qasDistribution.map(qas => qas.length));
+
+    // Construction du tableau de partage
+    for (let i = 0; i < maxRows; i++) {
+        const row = document.createElement("tr");
+
+        for (let j = 0; j < qasCount; j++) {
+            const cellQAS = document.createElement("td");
+            const cellAccord = document.createElement("td");
+
+            if (qasDistribution[j][i]) {
+                let hit = qasDistribution[j][i];
+                let percentage = hit.moyenne;
+                let color = percentage >= 99 ? 'lightgreen' :
+                            percentage >= 80 ? 'lightyellow' :
+                            percentage > 0 ? 'lightcoral' : 'white';
+                
+                cellQAS.textContent = hit.hitId;
+                cellQAS.style.backgroundColor = color;
+
+                cellAccord.textContent = hit.moyenne.toFixed(2) + "%";
+            } else {
+                cellQAS.textContent = "-";
+                cellAccord.textContent = "-";
+            }
+
+            row.appendChild(cellQAS);
+            row.appendChild(cellAccord);
+        }
+
+        partageBody.appendChild(row);
+    }
+
+    // Ajout de la ligne des moyennes
+    const moyenneRow = document.createElement("tr");
+    for (let j = 0; j < qasCount; j++) {
+        const moyenneCell = document.createElement("td");
+        const accordCell = document.createElement("td");
+
+        if (qasDistribution[j].length > 0) {
+            const totalMoyenne = qasDistribution[j].reduce((sum, hit) => sum + hit.moyenne, 0);
+            const moyenneFinale = (totalMoyenne / qasDistribution[j].length).toFixed(2) + "%";
+            moyenneCell.textContent = "Total";
+            accordCell.textContent = moyenneFinale;
+        } else {
+            moyenneCell.textContent = "Total";
+            accordCell.textContent = "0.00%";
+        }
+
+        moyenneRow.appendChild(moyenneCell);
+        moyenneRow.appendChild(accordCell);
+    }
+    partageBody.appendChild(moyenneRow);
+});
+
+
+
+
+//COPY PARTAGE TABLE
+document.getElementById('copy_partage').addEventListener('click', function() {
+  // Récupère la table "partageTable"
+  const partageTable = document.getElementById('partageTable');
+  
+  // Crée un élément temporaire pour copier le texte
+  const tempTextArea = document.createElement('textarea');
+  
+  // Copie tout le contenu HTML de la table dans le textarea
+  tempTextArea.value = partageTable.innerText; // Utiliser innerText pour ne copier que le texte visible
+  
+  // Ajoute le textarea au document
+  document.body.appendChild(tempTextArea);
+  
+  // Sélectionne tout le contenu de ce textarea
+  tempTextArea.select();
+  tempTextArea.setSelectionRange(0, 99999); // Pour les appareils mobiles
+  
+  // Exécute la commande de copie
+  document.execCommand('copy');
+  
+  // Supprime le textarea temporaire après la copie
+  document.body.removeChild(tempTextArea);
+  
+  // Affiche une notification ou une alerte pour confirmer
+  alert('Table copied to clipboard!');
+});
+
+
+
+
+// Associer le calcul de consensus au bouton
+//document.getElementById('showConsensusButton').addEventListener('click', calculateConsensus);
+
+
+
+
+  </script>
+</body>
+</html>

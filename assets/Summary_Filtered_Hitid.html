@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summary Filter by HitID</title>
+    <script src="papaparse_rado.js"></script>
+    <link rel="stylesheet" href="styles.css">
+	 <style>
+    body {
+        font-family: Arial, sans-serif;
+    }
+    header {
+        position: fixed;
+        top: 0;
+        width: 100%;
+        background-color: #f8f8f8;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+    }
+    h1 {
+        margin: 0;
+        font-size: 24px;
+    }
+    .file-input-label {
+        margin-right: 10px;
+        font-size: 12px;
+    }
+    .options-container {
+        margin-top: 10px;
+        font-size: 12px;
+    }
+    .options-container button,
+    .options-container label,
+    .options-container input[type="radio"] {
+        font-size: inherit;
+        margin-right: 10px;
+        margin-top: 5px;
+    }
+    .file-input {
+        display: inline-block;
+        margin-right: 20px;
+        font-size: 12px;
+    }
+    /* Augmentez la marge supérieure de .container */
+    .container {
+        margin-top: 250px; /* Ajustez cette valeur selon la hauteur réelle du header */
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    table, th, td {
+        border: 1px solid #ccc;
+    }
+    th, td {
+        padding: 8px;
+        text-align: left;
+    }
+    
+    #resultTable {
+        display: none; /* Cacher le tableau resultTable pour éviter l'utilisation excessive de mémoire */
+    }
+
+    .notification {
+        position: fixed;
+        top: 55px; /* Positionné à 55px du haut de la page */
+        left: 50%; /* Centré horizontalement */
+        transform: translateX(-50%); /* Ajuste le centre pour la largeur du message */
+        background-color: #4caf50;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        display: none; /* Caché par défaut */
+        z-index: 1000; /* Assure qu'il est au-dessus des autres éléments */
+        font-size: 18px; /* Ajuste la taille du texte si nécessaire */
+        text-align: center; /* Centre le texte à l'intérieur du message */
+    }
+
+    #checkboxContainer {
+        font-size: 0.8em; /* Ajustez la taille de police selon vos besoins */
+    }
+
+    #checkboxContainer label {
+        font-size: inherit; /* Assure que le label suit la taille de police du conteneur */
+    }
+</style>
+
+
+</head>
+<body>
+<header>
+    <h1>Summary Filter by HitID</h1>
+    <div id="safidy" style="background-color: black; color: white; padding: 10px; border-radius: 5px;">
+    <h2>Fichier TSV Journalier (Details ASIN)</h2>
+	</div>
+	<div id="notification" class="notification">
+		Traitement terminé ! La table "resultTable" a été créée.
+	</div>
+	<div id="fileInputa">
+    <input type="file" id="fileInput" class="file-input" accept=".tsv">
+    <button id="exportButton">Export Brut Filtré par HitID to TSV</button>
+</div>
+</header>
+
+<div class="container">
+    <div id="checkboxContainer"></div>
+    <div id="tablesContainer">
+       
+        <table id="CRJ_Table_Filtered">
+            <thead>
+                <tr>
+                    <th>HIT contrôlé</th>
+                    <th>HIT KO</th>
+                    <th>CORRECT_MAJORITY</th>
+                    <th>CORRECT_MINORITY</th>
+                    <th>INCORRECT_MAJORITY</th>
+                    <th>INCORRECT_MINORITY</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+		<div id="tableau_filtre_hitid"></div>
+		<table id="consensus_attribut_filtered">
+			<caption>ATTRIBUTS CONSENSUS FILTRÉS</caption>
+			<thead>
+				<tr>
+					<th>Attributs</th>
+					<th>Correct Majority</th>
+					<th>Taux %</th>
+					<th>Correct Minority</th>
+					<th>Taux %</th>
+					<th>Incorrect Majority</th>
+					<th>Taux %</th>
+					<th>Incorrect Minority</th>
+					<th>Taux %</th>
+					<th>Total</th>
+					<th>Consensus Correctness (%)</th>
+					<th>Attribute Error Rate (%)</th>
+				</tr>
+			</thead>
+			<tbody>
+				<!-- Les lignes de données seront ajoutées ici par le script JavaScript -->
+			</tbody>
+		</table>
+
+    </div>
+</div>
+<table id="resultTable"></table>
+
+    <script>
+	 document.getElementById('fileInput').addEventListener('change', function (event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const content = e.target.result;
+            // Appelez directement la fonction pour le traitement des données quotidiennes
+            processDataDaily(content);
+            console.log('Traitement du fichier TSV journalier');
+        };
+        reader.readAsText(file);
+    }
+	});
+		
+		
+	function processDataDaily(data) {
+    Papa.parse(data, {
+        header: true,
+        delimiter: '\t',
+        skipEmptyLines: true,
+        preview: 500000,
+        complete: function (results) {
+            const parsedData = results.data;
+            const necessaryHeaders = ['hitid', 'AssignmentId', 'workerid', 'key', 'assin_json', 'assin_juge_json'];
+            const headersFromData = results.meta.fields.map(header => header.trim().toLowerCase());
+            const normalizedNecessaryHeaders = necessaryHeaders.map(header => header.trim().toLowerCase());
+            const headersPresent = normalizedNecessaryHeaders.every(header => headersFromData.includes(header));
+
+            if (!headersPresent) {
+                console.error('Headers found:', headersFromData);
+                console.error('Expected headers:', normalizedNecessaryHeaders);
+                alert('Les entêtes nécessaires ne sont pas toutes présentes.');
+                return;
+            }
+
+            const resultTable = document.getElementById('resultTable');
+            resultTable.innerHTML = '';
+
+            const caption = resultTable.createCaption();
+            caption.textContent = 'ANALYSE GLOBAL DES RESULTATS VENANT DE LOOKERS STUDIO';
+
+            const headers = necessaryHeaders.concat(['smarter', 'juge']);
+            const headerRow = resultTable.insertRow();
+
+            headers.forEach(header => {
+                const cell = document.createElement('th');
+                cell.textContent = header;
+                headerRow.appendChild(cell);
+            });
+
+            const uniqueKeys = new Set();
+            parsedData.forEach(row => {
+                const assinJson = row.assin_json.split(',');
+                const jugeJson = row.assin_juge_json.split(',');
+
+                assinJson.forEach(key => uniqueKeys.add(key.trim()));
+                jugeJson.forEach(key => uniqueKeys.add(key.trim()));
+
+                row.smarter = assinJson.join(',');
+                row.juge = jugeJson.join(',');
+            });
+
+            uniqueKeys.forEach(key => {
+                if (key) {
+                    const cell = document.createElement('th');
+                    cell.textContent = key;
+                    headerRow.appendChild(cell);
+                }
+            });
+
+            const asinJudgmentHeader = document.createElement('th');
+            asinJudgmentHeader.textContent = 'Jugement ASIN';
+            headerRow.appendChild(asinJudgmentHeader);
+
+            const assignmentJudgmentHeader = document.createElement('th');
+            assignmentJudgmentHeader.textContent = 'Jugement Assignement';
+            headerRow.appendChild(assignmentJudgmentHeader);
+
+            const hitJudgmentHeader = document.createElement('th');
+            hitJudgmentHeader.textContent = 'Jugement HitId';
+            headerRow.appendChild(hitJudgmentHeader);
+
+            parsedData.forEach(row => {
+                const rowElement = resultTable.insertRow();
+                headers.forEach(header => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = row[header] || '';
+                });
+
+                uniqueKeys.forEach(key => {
+                    const cell = rowElement.insertCell();
+                    cell.textContent = '';
+                });
+
+                const asinJudgmentCell = rowElement.insertCell();
+                asinJudgmentCell.textContent = '';
+
+                const assignmentJudgmentCell = rowElement.insertCell();
+                assignmentJudgmentCell.textContent = '';
+
+                const hitJudgmentCell = rowElement.insertCell();
+                hitJudgmentCell.textContent = '';
+            });
+
+            // Regrouper par `key` et `AssignmentId`
+            const groupedByKey = parsedData.reduce((acc, row, index) => {
+                if (!acc[row.key]) acc[row.key] = [];
+                row.index = index;
+                acc[row.key].push(row);
+                return acc;
+            }, {});
+
+            const groupedByAssignment = parsedData.reduce((acc, row) => {
+                if (!acc[row.AssignmentId]) acc[row.AssignmentId] = [];
+                acc[row.AssignmentId].push(row);
+                return acc;
+            }, {});
+
+            const groupedByHit = parsedData.reduce((acc, row) => {
+                if (!acc[row.hitid]) acc[row.hitid] = [];
+                acc[row.hitid].push(row);
+                return acc;
+            }, {});
+
+            Object.keys(groupedByKey).forEach(key => {
+                const group = groupedByKey[key];
+                const totalRows = group.length;
+
+                const smarterCounts = {};
+                const jugeCounts = {};
+
+                group.forEach(row => {
+                    row.smarter.split(', ').forEach(attr => {
+                        if (attr) smarterCounts[attr] = (smarterCounts[attr] || 0) + 1;
+                    });
+                    row.juge.split(', ').forEach(attr => {
+                        if (attr) jugeCounts[attr] = (jugeCounts[attr] || 0) + 1;
+                    });
+                });
+
+                group.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+
+                    uniqueKeys.forEach(attr => {
+                        let cellValue = '';
+                        const smarterHasAttr = row.smarter.includes(attr);
+                        const jugeHasAttr = row.juge.includes(attr);
+                        const countSmarterCorrect = group.filter(r => r.smarter.includes(attr) && r.juge.includes(attr)).length;
+                        const countSmarterIncorrect = group.filter(r => r.smarter.includes(attr) && !r.juge.includes(attr)).length;
+                        const countMissing = group.filter(r => !r.smarter.includes(attr) && r.juge.includes(attr)).length;
+
+                        if (smarterHasAttr && jugeHasAttr) {
+                            cellValue = countSmarterCorrect >= totalRows / 2 ? 'c_maj' : 'c_min';
+                        } else if (smarterHasAttr && !jugeHasAttr) {
+                            cellValue = countSmarterIncorrect >= totalRows / 2 ? 'i_maj' : 'i_min';
+                        } else if (!smarterHasAttr && jugeHasAttr) {
+                            cellValue = countMissing >= totalRows / 2 ? 'missing_maj' : 'missing_min';
+                        }
+
+                        const cell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === attr)];
+                        if (cell) {
+                            cell.textContent = cellValue;
+                        }
+                    });
+
+                    const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                    const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                    const cellValues = Array.from(rowElement.cells).slice(headers.length, headers.length + uniqueKeys.size).map(cell => cell.textContent);
+
+                    if (cellValues.includes('i_min') || cellValues.includes('i_maj') || cellValues.includes('missing_min') || cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ko';
+                    } else if ((cellValues.includes('c_min') || cellValues.includes('c_maj')) &&
+                        !cellValues.includes('i_min') && !cellValues.includes('i_maj') &&
+                        !cellValues.includes('missing_min') && !cellValues.includes('missing_maj')) {
+                        asinJudgmentCell.textContent = 'ok';
+                    }
+                });
+            });
+
+            // Calcul de "Jugement Assignement"
+            Object.keys(groupedByAssignment).forEach(assignmentId => {
+                const assignmentGroup = groupedByAssignment[assignmentId];
+                const totalCount = assignmentGroup.length;
+                const okCount = assignmentGroup.filter(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const asinJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement ASIN');
+                    const asinJudgmentCell = rowElement.cells[asinJudgmentIndex];
+                    return asinJudgmentCell.textContent === 'ok';
+                }).length;
+
+                const assignmentJudgmentRatio = okCount / totalCount;
+                const assignmentJudgment = assignmentJudgmentRatio > 0.5 ? 'assignement_ok' : 'assignement_ko';
+
+                assignmentGroup.forEach(row => {
+                    const rowIndex = row.index;
+                    const rowElement = resultTable.rows[rowIndex + 1];
+                    const assignmentJudgmentCell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement Assignement')];
+                    assignmentJudgmentCell.textContent = assignmentJudgment;
+                });
+            });
+
+           // Calcul de "Jugement HitId"
+			Object.keys(groupedByHit).forEach(hitid => {
+				const hitGroup = groupedByHit[hitid]; // Groupe des lignes pour ce hitid
+				const totalCount = hitGroup.length; // Nombre total de lignes pour ce hitid
+				const okCount = hitGroup.filter(row => {
+					const rowIndex = row.index;
+					const rowElement = resultTable.rows[rowIndex + 1];
+					const assignmentJudgmentIndex = Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement Assignement');
+					const assignmentJudgmentCell = rowElement.cells[assignmentJudgmentIndex];
+					return assignmentJudgmentCell.textContent === 'assignement_ok'; // Filtrer pour 'assignement_ok'
+				}).length; // Nombre de 'assignement_ok'
+
+				const hitJudgmentRatio = okCount / totalCount; // Calcul du ratio
+
+				// Déterminer le jugement basé sur le ratio
+				const hitJudgment = hitJudgmentRatio > 0.5 ? 'hitid_ok' : 'hitid_ko';
+
+				// Mettre à jour toutes les lignes avec le jugement déterminé
+				hitGroup.forEach(row => {
+					const rowIndex = row.index;
+					const rowElement = resultTable.rows[rowIndex + 1];
+					const hitJudgmentCell = rowElement.cells[Array.from(headerRow.cells).findIndex(c => c.textContent === 'Jugement HitId')];
+					hitJudgmentCell.textContent = hitJudgment; // Mettre à jour avec 'hitid_ok' ou 'hitid_ko'
+				});
+			});
+
+
+			// Afficher la notification lorsque le traitement est terminé
+			const notification = document.getElementById('notification');
+			notification.textContent = 'Le traitement des données est terminé.';
+			notification.style.display = 'block'; // Afficher la notification
+
+			// Masquer la notification après 3 secondes (3000 millisecondes)
+			setTimeout(() => {
+				notification.style.display = 'none';
+			}, 3000);
+
+			// Appeler la fonction pour créer les cases à cocher des hitid
+			createHitidCheckboxes();
+        }
+    });
+}
+
+
+// Fonction pour copier le contenu d'une table dans le presse-papiers
+async function copyTableToClipboard(table) {
+    if (!table) {
+        console.error('Table non trouvée.');
+        return;
+    }
+
+    // Vérifier si la table est vide
+    if (!table.innerText.trim()) {
+        alert('Table vide');
+        return;
+    }
+
+    try {
+        // Obtenir le contenu de la table
+        const tableText = table.innerText;
+
+        // Copier le contenu dans le presse-papiers en utilisant l'API Clipboard
+        await navigator.clipboard.writeText(tableText);
+
+        // Obtenir l'ID de la table
+        const tableId = table.id || 'sans ID';
+
+        // Afficher une notification pour l'utilisateur avec l'ID de la table
+        alert(`Table ${tableId} copiée dans le presse-papiers!`);
+    } catch (err) {
+        console.error('Erreur lors de la copie dans le presse-papiers:', err);
+    }
+}
+
+// Ajouter l'événement click pour copier une table
+document.querySelectorAll('table').forEach(table => {
+    table.onclick = () => {
+        copyTableToClipboard(table);
+    };
+});
+
+
+function formatPercentage(value) {
+    return `${parseFloat(value).toFixed(2).replace('.', ',')}%`;
+}
+
+function formatTotal(value) {
+    return parseInt(value).toLocaleString('fr-FR');
+}
+
+
+function showNotification(message) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.style.display = 'block';
+
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 5000); // Hide after 5 seconds
+}
+
+
+function generateTable() {
+    const resultTable = document.getElementById("resultTable");
+    const nbErreursTable = document.getElementById("Nb_Erreurs_WorkerID");
+    const headerRow = document.getElementById("headerRow");
+    const rows = resultTable.getElementsByTagName("tr");
+    const workerData = {};
+    let startCol = 0, endCol = 0;
+    let workerIdColIndex = -1; // Initialiser l'index de la colonne workerid
+
+    // Effacer les en-têtes existants dans headerRow pour éviter les duplications
+    while (headerRow.firstChild) {
+        headerRow.removeChild(headerRow.firstChild);
+    }
+
+    // Récupérer les en-têtes de la première ligne (ligne d'en-têtes)
+    const headers = Array.from(rows[0].getElementsByTagName("th")).map(header => header.innerText.trim());
+
+    // Localiser l'index de la colonne "workerid" et des colonnes "juge" et "Jugement ASIN"
+    workerIdColIndex = headers.indexOf('workerid');
+    startCol = headers.indexOf('juge') + 1;
+    endCol = headers.indexOf('Jugement ASIN') - 1;
+
+    // Ajouter dynamiquement la colonne "workerid" à l'en-tête
+    const workerIdTh = document.createElement("th");
+    workerIdTh.innerText = "workerid";
+    headerRow.appendChild(workerIdTh);
+
+    // Créer dynamiquement les colonnes du tableau
+    for (let i = startCol; i <= endCol; i++) {
+        const th = document.createElement("th");
+        th.innerText = headers[i];
+        headerRow.appendChild(th);
+    }
+
+    // Ajouter la colonne "Total"
+    const totalTh = document.createElement("th");
+    totalTh.innerText = "Total";
+    headerRow.appendChild(totalTh);
+
+    // Initialiser le grand total pour chaque colonne d'erreurs
+    const grandTotal = {};
+    for (let i = startCol; i <= endCol; i++) {
+        grandTotal[headers[i]] = 0;
+    }
+    grandTotal["Total"] = 0;
+
+    // Parcourir les lignes du tableau source
+    for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName("td");
+
+        // Utiliser l'index localisé pour obtenir le workerid
+        const workerid = cells[workerIdColIndex].innerText.trim();
+        console.log(`WorkerID extrait de la ligne ${i}: ${workerid}`);  // Ajouter un log pour afficher le workerid extrait
+
+        // Initialiser le workerid s'il n'est pas encore enregistré
+        if (!workerData[workerid]) {
+            workerData[workerid] = {};
+            for (let j = startCol; j <= endCol; j++) {
+                workerData[workerid][headers[j]] = 0;
+            }
+            workerData[workerid]["Total"] = 0;
+        }
+
+        // Compter les occurrences des valeurs et calculer le total
+        for (let j = startCol; j <= endCol; j++) {
+            const value = cells[j].innerText.trim();
+            if (value === 'i_maj' || value === 'i_min' ||  value === 'missing_min' || value === 'missing_maj') {
+                workerData[workerid][headers[j]] += 1;
+                workerData[workerid]["Total"] += 1;
+                grandTotal[headers[j]] += 1;
+                grandTotal["Total"] += 1;
+            }
+        }
+    }
+
+    // Effacer les lignes existantes dans nbErreursTable pour éviter les duplications
+    while (nbErreursTable.rows.length > 1) {
+        nbErreursTable.deleteRow(1);
+    }
+
+    // Remplir le tableau généré avec les données calculées
+    for (const [workerid, data] of Object.entries(workerData)) {
+        const row = nbErreursTable.insertRow();
+        row.insertCell().innerText = workerid;
+        Object.values(data).forEach(value => row.insertCell().innerText = value);
+    }
+
+    // Ajouter la ligne "Grand Total" au bas du tableau
+    const totalRow = nbErreursTable.insertRow();
+    const totalCell = totalRow.insertCell();
+    totalCell.innerText = "Grand Total";
+    Object.values(grandTotal).forEach(value => {
+        const cell = totalRow.insertCell();
+        cell.innerText = value;
+    });
+}
+
+// Fonction pour masquer toutes les tables et afficher seulement celle spécifiée
+function showTable(tableId) {
+    // Masquer toutes les tables
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => table.classList.add('hidden'));
+    
+    // Afficher la table correspondante
+    const tableToShow = document.getElementById(tableId);
+    if (tableToShow) {
+        tableToShow.classList.remove('hidden');
+    }
+}
+
+
+
+
+
+// EXPORT BIG TABLE TO TSV FILE
+document.getElementById('exportButton').addEventListener('click', function() {
+    let table = document.getElementById('resultTable');
+    let rows = table.querySelectorAll('tr');
+    let tsv = [];
+
+    // Récupérer les en-têtes de la table
+    const headers = table.querySelectorAll('th');
+    let headerArray = Array.from(headers).map(header => header.innerText.replace(/\s+/g, ' ').trim());
+    tsv.push(headerArray.join('\t')); // Ajouter les en-têtes au TSV
+
+    // Récupérer tous les hitid cochés
+    const checkedHitids = new Set();
+    const checkboxes = document.querySelectorAll('#checkboxContainer input[type="checkbox"]:not(#selectAll)');
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            checkedHitids.add(checkbox.id);
+        }
+    });
+
+    // Filtrer les lignes du tableau en fonction des hitid cochés
+    rows.forEach(row => {
+        const hitidCell = row.getElementsByTagName('td')[0]; // Supposant que le hitid est dans la 1ère colonne
+        if (hitidCell) {
+            const hitid = hitidCell.textContent.trim();
+            if (checkedHitids.size === 0 || checkedHitids.has(hitid)) {
+                let cells = row.querySelectorAll('th, td');
+                let rowArray = Array.from(cells).map(cell => cell.innerText.replace(/\s+/g, ' ').trim());
+                tsv.push(rowArray.join('\t'));
+            }
+        }
+    });
+
+    // Exporter les données filtrées
+    if (tsv.length > 1) { // Vérifier qu'il y a au moins les en-têtes et une ligne de données
+        let blob = new Blob([tsv.join('\n')], { type: 'text/tsv' });
+        let url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = 'table_export.tsv';
+        a.click();
+        URL.revokeObjectURL(url);
+    } else {
+        alert('Aucune donnée à exporter. Veuillez sélectionner au moins un HitID.');
+    }
+});
+
+
+	
+		
+// Fonction pour créer la liste unique des hitid avec cases à cocher
+function createHitidCheckboxes() {
+    // Récupérer la table resultTable (celle qui a déjà été créée)
+    const resultTable = document.getElementById('resultTable');
+    if (!resultTable) {
+        console.error('Le tableau resultTable est introuvable.');
+        return;
+    }
+
+    // Extraire les hitid (Supposant que les hitid sont dans la 1ère colonne)
+    const rows = resultTable.getElementsByTagName('tr');
+    const hitidSet = new Set();  // Utiliser un Set pour éviter les doublons
+
+    for (let i = 1; i < rows.length; i++) { // Ignorer la première ligne (en-tête)
+        const hitidCell = rows[i].getElementsByTagName('td')[0]; // Récupère la 1ère cellule (hitid)
+        if (hitidCell) {
+            hitidSet.add(hitidCell.textContent.trim()); // Ajouter le hitid dans le Set
+        }
+    }
+
+    // Créer un conteneur pour les cases à cocher
+    const checkboxContainer = document.getElementById('checkboxContainer');
+    if (!checkboxContainer) {
+        console.error('Le conteneur pour les cases à cocher est introuvable.');
+        return;
+    }
+
+    // Effacer le conteneur pour le remplir avec de nouvelles cases à cocher
+    checkboxContainer.innerHTML = '';
+
+    // Compter le nombre total de hitid
+    const totalHitids = hitidSet.size;
+
+    // Créer la case à cocher "Select All/Deselect All"
+    const selectAllDiv = document.createElement('div');
+    const selectAllCheckbox = document.createElement('input');
+    selectAllCheckbox.type = 'checkbox';
+    selectAllCheckbox.id = 'selectAll';
+    selectAllCheckbox.onclick = function() {
+        const checkboxes = checkboxContainer.querySelectorAll('input[type="checkbox"]:not(#selectAll)');
+        checkboxes.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
+        updateHitidSummary(); // Mettre à jour immédiatement après le changement de "Select All"
+    };
+    
+    const selectAllLabel = document.createElement('label');
+    selectAllLabel.htmlFor = 'selectAll';
+    selectAllLabel.textContent = `Select All/Deselect All: ${totalHitids} HitID available`;
+    
+    selectAllDiv.appendChild(selectAllCheckbox);
+    selectAllDiv.appendChild(selectAllLabel);
+    checkboxContainer.appendChild(selectAllDiv);
+
+    // Ajouter les cases à cocher pour chaque hitid unique
+    hitidSet.forEach(hitid => {
+        const hitidDiv = document.createElement('div');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = hitid;
+        
+        const label = document.createElement('label');
+        label.htmlFor = hitid;
+        label.textContent = hitid;
+        
+        hitidDiv.appendChild(checkbox);
+        hitidDiv.appendChild(label);
+        checkboxContainer.appendChild(hitidDiv);
+    });
+	// Attacher un écouteur d'événements à toutes les cases à cocher, y compris "Select All/Deselect All"
+	document.querySelectorAll('#checkboxContainer input[type="checkbox"]').forEach(checkbox => {
+		checkbox.addEventListener('change', function() {
+			if (this.id === 'selectAll') {
+				const checkboxes = checkboxContainer.querySelectorAll('input[type="checkbox"]:not(#selectAll)');
+				checkboxes.forEach(checkbox => checkbox.checked = this.checked);
+			}
+			updateHitidSummary();
+			calculateFilteredHITs();
+			calculateFilteredConsensus() ;
+			//IZAY FONCTION VAOVAO ALATSAKA ETO
+			//extractDataForCheckedHitIds();
+		});
+	});
+}
+
+
+// Fonction pour mettre à jour le tableau récapitulatif des hitid cochés
+function updateHitidSummary() {
+    const resultTable = document.getElementById('resultTable');
+    const checkboxes = document.querySelectorAll('#checkboxContainer input[type="checkbox"]:not(#selectAll)');
+    
+    // Récupérer les hitid cochés
+    const selectedHitids = Array.from(checkboxes)
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => checkbox.id);
+
+    // Afficher le nombre de hitid cochés dans l'élément <h2>
+    const selectedHitidCount = selectedHitids.length;
+    const header = document.querySelector('h2'); // Supposant que <h2> est unique dans votre HTML
+    header.textContent = `Fichier TSV Journalier (Details ASIN) - ${selectedHitidCount} HitID sélectionné(s)`;
+
+    // Vider le tableau récapitulatif précédent
+    const tableauFiltreHitid = document.getElementById('tableau_filtre_hitid');
+    tableauFiltreHitid.innerHTML = '';
+
+    // Si aucune case n'est cochée, ne rien afficher
+    if (selectedHitids.length === 0) {
+        return;
+    }
+
+    // Créer un objet pour stocker les données par workerid
+    const workerData = {};
+
+    // Parcourir les lignes du tableau source (resultTable) pour extraire les données pertinentes
+    const rows = resultTable.getElementsByTagName('tr');
+    
+    // Détecter les index des colonnes à partir de la première ligne (les en-têtes)
+    const headers = rows[0].getElementsByTagName('th');
+    let hitidIndex, workeridIndex, assignmentIdIndex, jugementAsinIndex;
+
+    for (let i = 0; i < headers.length; i++) {
+        const headerText = headers[i].textContent.trim().toLowerCase();
+        if (headerText === 'hitid') hitidIndex = i;
+        if (headerText === 'workerid') workeridIndex = i;
+        if (headerText === 'assignmentid') assignmentIdIndex = i;
+        if (headerText === 'jugement asin') jugementAsinIndex = i;
+    }
+
+    // Assurez-vous que toutes les colonnes nécessaires ont été trouvées
+    if (hitidIndex === undefined || workeridIndex === undefined || assignmentIdIndex === undefined || jugementAsinIndex === undefined) {
+        console.error('Certaines colonnes nécessaires sont manquantes dans le tableau source.');
+        return;
+    }
+
+    for (let i = 1; i < rows.length; i++) { // Ignorer la première ligne (en-tête)
+        const cells = rows[i].getElementsByTagName('td');
+        const hitid = cells[hitidIndex].textContent.trim();
+        const workerid = cells[workeridIndex].textContent.trim();
+        const assignmentId = cells[assignmentIdIndex].textContent.trim();
+        const jugementAsin = cells[jugementAsinIndex].textContent.trim(); // Supposé être la colonne Jugement ASIN
+
+        // Vérifier si le hitid est sélectionné
+        if (selectedHitids.includes(hitid)) {
+            if (!workerData[workerid]) {
+                workerData[workerid] = {
+                    hitidSet: new Set(),
+                    assignmentIdSet: new Set(),
+                    totalAsin: 0,
+                    correct: 0,
+                    incorrect: 0
+                };
+            }
+
+            const data = workerData[workerid];
+            data.hitidSet.add(hitid); // Ajouter le hitid au Set (évite les doublons)
+            data.assignmentIdSet.add(assignmentId); // Ajouter l'AssignmentId au Set
+            data.totalAsin += 1; // Compter le nombre total de lignes pour le workerid
+            if (jugementAsin === 'ok') {
+                data.correct += 1; // Compter les "ok"
+            } else if (jugementAsin === 'ko') {
+                data.incorrect += 1; // Compter les "ko"
+            }
+        }
+    }
+
+    // Construire le tableau HTML récapitulatif
+    const table = document.createElement('table');
+    const headerRow = `
+        <tr>
+            <th>workerid</th>
+            <th>Total HitID Piqués</th>
+            <th>Total AssignementID Piqués</th>
+            <th>Total ASIN Piqués</th>
+            <th>Correct</th>
+            <th>Incorrecte</th>
+            <th>Accuracy (%)</th>
+            <th>Error Rate (%)</th>
+        </tr>`;
+    table.innerHTML = headerRow;
+
+    let totalHitid = 0;
+    let totalAssignment = 0;
+    let totalAsin = 0;
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+
+    Object.keys(workerData).forEach(workerid => {
+        const data = workerData[workerid];
+        const hitidCount = data.hitidSet.size;
+        const assignmentCount = data.assignmentIdSet.size;
+        const asinCount = data.totalAsin;
+        const correctCount = data.correct;
+        const incorrectCount = data.incorrect;
+        const accuracy = ((correctCount / asinCount) * 100).toFixed(2);
+        const errorRate = ((incorrectCount / asinCount) * 100).toFixed(2);
+
+        // Calcul des totaux globaux
+        totalHitid += hitidCount;
+        totalAssignment += assignmentCount;
+        totalAsin += asinCount;
+        totalCorrect += correctCount;
+        totalIncorrect += incorrectCount;
+
+        // Ajouter une ligne pour chaque workerid
+        const row = `
+            <tr>
+                <td>${workerid}</td>
+                <td>${hitidCount}</td>
+                <td>${assignmentCount}</td>
+                <td>${asinCount}</td>
+                <td>${correctCount}</td>
+                <td>${incorrectCount}</td>
+                <td>${accuracy}%</td>
+                <td>${errorRate}%</td>
+            </tr>`;
+        table.innerHTML += row;
+    });
+
+    // Ajouter la ligne des totaux globaux
+    const totalAccuracy = ((totalCorrect / totalAsin) * 100).toFixed(2);
+    const totalErrorRate = ((totalIncorrect / totalAsin) * 100).toFixed(2);
+    const totalRow = `
+        <tr>
+            <td><strong>Total général</strong></td>
+            <td><strong>${totalHitid}</strong></td>
+            <td><strong>${totalAssignment}</strong></td>
+            <td><strong>${totalAsin}</strong></td>
+            <td><strong>${totalCorrect}</strong></td>
+            <td><strong>${totalIncorrect}</strong></td>
+            <td><strong>${totalAccuracy}%</strong></td>
+            <td><strong>${totalErrorRate}%</strong></td>
+        </tr>`;
+    table.innerHTML += totalRow;
+
+    // Ajouter le tableau au DOM
+    tableauFiltreHitid.appendChild(table);
+}
+
+
+
+
+
+
+// Fonction pour récupérer les hitids cochés
+function getCheckedHitIds() {
+    const checkedHitIds = [];
+    const checkboxes = document.querySelectorAll('#checkboxContainer input[type="checkbox"]:not(#selectAll)');
+    
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            checkedHitIds.push(checkbox.id); // L'id de chaque checkbox correspond à un hitid
+        }
+    });
+
+    return checkedHitIds;
+}
+
+// Fonction pour calculer les données filtrées
+function calculateFilteredHITs() {
+    // Récupère la table "resultTable"
+    var resultTable = document.getElementById('resultTable');
+    var rows = resultTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    // Variables pour stocker les index des colonnes
+    var jugeIndex = -1;
+    var jugementASINIndex = -1;
+
+    // Récupère les en-têtes en fonction de la première ligne (si pas de thead)
+    var headerRow = resultTable.getElementsByTagName('tr')[0];  // La première ligne de la table
+    var headers = headerRow.getElementsByTagName('th');  // En-têtes de colonnes
+
+    // Recherche des index des colonnes "juge" et "jugement ASIN" dans les en-têtes
+    Array.from(headers).forEach(function(header, index) {
+        var headerText = header.innerText.trim().toLowerCase();  // Convertir le texte en minuscule pour une comparaison sans casse
+        if (headerText === 'juge') {
+            jugeIndex = index;
+        } else if (headerText === 'jugement asin') {
+            jugementASINIndex = index;
+        }
+    });
+
+    // Vérifie que les colonnes "juge" et "jugement ASIN" ont bien été trouvées
+    if (jugeIndex === -1 || jugementASINIndex === -1) {
+        console.error('Les colonnes "juge" ou "jugement ASIN" sont introuvables.');
+        return;
+    }
+
+    // Récupère les HITs cochés
+    var checkedHitIds = getCheckedHitIds(); 
+    var totalControlled = 0, totalKO = 0;
+    var correctMajority = 0, correctMinority = 0, incorrectMajority = 0, incorrectMinority = 0;
+    var totalAttributs = 0; // Total des attributs pour les calculs de pourcentages
+
+    // Parcours des lignes de "resultTable"
+    Array.from(rows).forEach(function(row) {
+        var cells = row.getElementsByTagName('td');
+
+        // Vérifie que la ligne contient des cellules
+        if (cells.length > 0) {
+            var hitid = cells[0].innerText.trim();  // Colonne hitid
+            var jugementHitId = cells[jugementASINIndex].innerText.trim(); // Colonne "Jugement ASIN"
+
+            // Si le hitid est coché
+            if (checkedHitIds.includes(hitid)) {
+                totalControlled++; // Incrémente le HIT contrôlé
+
+                // Si le jugement est "hitid_ok", on incrémente le HIT KO
+                if (jugementHitId === "hitid_ok") {
+                    totalKO++;
+                }
+
+                // Parcourir les colonnes des attributs entre "juge" et "jugement ASIN"
+                for (var i = jugeIndex + 1; i < jugementASINIndex; i++) {
+                    var attribut = cells[i].innerText.trim();
+
+                    // Comptabilisation des attributs
+                    if (attribut === 'c_maj') {
+                        correctMajority++;
+                    } else if (attribut === 'c_min') {
+                        correctMinority++;
+                    } else if (attribut === 'i_maj' || attribut === 'missing_maj') {
+                        incorrectMajority++;
+                    } else if (attribut === 'i_min' || attribut === 'missing_min') {
+                        incorrectMinority++;
+                    }
+
+                    // Total des attributs pour ce HIT
+                    totalAttributs++;
+                }
+            }
+        }
+    });
+
+    // Calcul des pourcentages
+    var correctMajorityRate = (correctMajority / (correctMajority+correctMinority+incorrectMajority+incorrectMinority) * 100).toFixed(2) + '%';
+    var correctMinorityRate = (correctMinority / (correctMajority+correctMinority+incorrectMajority+incorrectMinority) * 100).toFixed(2) + '%';
+    var incorrectMajorityRate = (incorrectMajority / (correctMajority+correctMinority+incorrectMajority+incorrectMinority) * 100).toFixed(2) + '%';
+    var incorrectMinorityRate = (incorrectMinority / (correctMajority+correctMinority+incorrectMajority+incorrectMinority) * 100).toFixed(2) + '%';
+
+    // Insertion des résultats dans la nouvelle table "CRJ_Table_Filtered"
+    var filteredTable = document.getElementById('CRJ_Table_Filtered').getElementsByTagName('tbody')[0];
+
+    // Efface les lignes existantes avant d'ajouter de nouvelles lignes
+    while (filteredTable.rows.length > 0) {
+        filteredTable.deleteRow(0);
+    }
+
+    // Ajout des nouvelles lignes avec les pourcentages
+    var newRow = filteredTable.insertRow();
+    newRow.insertCell(0).innerText = totalControlled;
+    newRow.insertCell(1).innerText = totalKO;
+    newRow.insertCell(2).innerText = correctMajorityRate;
+    newRow.insertCell(3).innerText = correctMinorityRate;
+    newRow.insertCell(4).innerText = incorrectMajorityRate;
+    newRow.insertCell(5).innerText = incorrectMinorityRate;
+
+    // Optionnel : Afficher également les nombres bruts
+    var newRowRaw = filteredTable.insertRow();
+    newRowRaw.insertCell(0).innerText = totalControlled;
+    newRowRaw.insertCell(1).innerText = totalKO;
+    newRowRaw.insertCell(2).innerText = correctMajority;
+    newRowRaw.insertCell(3).innerText = correctMinority;
+    newRowRaw.insertCell(4).innerText = incorrectMajority;
+    newRowRaw.insertCell(5).innerText = incorrectMinority;
+}
+
+
+//FONCTION POUR CALCULER ET CREER LA TABLEAU DE CONSENSUS FILTRER
+// Fonction pour calculer et créer le tableau de consensus filtré
+function calculateFilteredConsensus() {
+    const resultTable = document.getElementById('resultTable');
+    const attributes = {};
+
+    // Récupérer les hitids cochés
+    const checkedHitIds = getCheckedHitIds();
+
+    // Filtrer les lignes en fonction des hitids cochés
+    const filteredRows = Array.from(resultTable.rows).filter(row => {
+        const hitidCell = row.cells[0]; // Supposons que la première colonne contient les hitids
+        return checkedHitIds.includes(hitidCell.textContent.trim());
+    });
+
+    // Trouver les en-têtes de colonnes
+    const headers = Array.from(resultTable.querySelectorAll('th')).map(th => th.innerText.trim());
+
+    // Trouver l'index de la colonne 'juge' et des colonnes d'attributs
+    const jugeIndex = headers.indexOf('juge');
+    const attributeColumns = headers.slice(jugeIndex + 1).filter(col => col !== 'Jugement ASIN' && col !== 'Jugement Assignement' && col !== 'Jugement HitId');
+
+    if (jugeIndex === -1) {
+        console.error('Colonne "juge" non trouvée');
+        return;
+    }
+
+    // Initialiser les attributs pour les colonnes
+    attributeColumns.forEach(attr => {
+        attributes[attr] = {
+            correctMajority: 0,
+            correctMinority: 0,
+            incorrectMajority: 0,
+            incorrectMinority: 0
+        };
+    });
+
+    // Collecter les données des lignes filtrées
+    filteredRows.forEach(row => {
+        const cellValues = row.cells;
+
+        attributeColumns.forEach((attr, index) => {
+            const cellIndex = jugeIndex + 1 + index;
+            if (cellIndex < cellValues.length) {
+                const value = cellValues[cellIndex].textContent.trim();
+
+                if (value === 'c_maj') {
+                    attributes[attr].correctMajority++;
+                } else if (value === 'c_min') {
+                    attributes[attr].correctMinority++;
+                } else if (value === 'i_maj' || value === 'missing_maj') {
+                    attributes[attr].incorrectMajority++;
+                } else if (value === 'i_min' || value === 'missing_min') {
+                    attributes[attr].incorrectMinority++;
+                }
+            }
+        });
+    });
+
+    // Calculer les totaux globaux
+    let grandTotalCorrectMajority = 0;
+    let grandTotalCorrectMinority = 0;
+    let grandTotalIncorrectMajority = 0;
+    let grandTotalIncorrectMinority = 0;
+
+    Object.values(attributes).forEach(data => {
+        grandTotalCorrectMajority += data.correctMajority;
+        grandTotalCorrectMinority += data.correctMinority;
+        grandTotalIncorrectMajority += data.incorrectMajority;
+        grandTotalIncorrectMinority += data.incorrectMinority;
+    });
+
+    // Calculer le grand total général
+    const grandTotal = grandTotalCorrectMajority + grandTotalCorrectMinority + grandTotalIncorrectMajority + grandTotalIncorrectMinority;
+
+    // Référencer le tableau existant
+    const detailedTable = document.getElementById('consensus_attribut_filtered').querySelector('tbody');
+
+    // Réinitialiser le contenu du tableau
+    detailedTable.innerHTML = '';
+
+    // Ajouter les lignes de données
+    Object.keys(attributes).forEach(attr => {
+        const data = attributes[attr];
+        const total = data.correctMajority + data.correctMinority + data.incorrectMajority + data.incorrectMinority;
+
+        const row = detailedTable.insertRow();
+        row.insertCell().textContent = attr;
+        row.insertCell().textContent = data.correctMajority;
+        row.insertCell().textContent = grandTotal > 0 ? (data.correctMajority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+        row.insertCell().textContent = data.correctMinority;
+        row.insertCell().textContent = grandTotal > 0 ? (data.correctMinority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+        row.insertCell().textContent = data.incorrectMajority;
+        row.insertCell().textContent = grandTotal > 0 ? (data.incorrectMajority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+        row.insertCell().textContent = data.incorrectMinority;
+        row.insertCell().textContent = grandTotal > 0 ? (data.incorrectMinority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+
+        row.insertCell().textContent = total;
+
+        const consensusCorrectness = (grandTotalCorrectMajority + grandTotalCorrectMinority > 0)
+            ? ((data.correctMajority + data.correctMinority) / grandTotal * 100).toFixed(2).replace('.', ',') + '%'
+            : '0,00%';
+        row.insertCell().textContent = consensusCorrectness;
+
+        const attributeErrorRate = (grandTotalIncorrectMajority + grandTotalIncorrectMinority > 0)
+            ? ((data.incorrectMajority + data.incorrectMinority) / grandTotal * 100).toFixed(2).replace('.', ',') + '%'
+            : '0,00%';
+        row.insertCell().textContent = attributeErrorRate;
+    });
+
+    // Ajouter la ligne totale
+    const totalRow = detailedTable.insertRow();
+    totalRow.insertCell().textContent = 'Total';
+    totalRow.insertCell().textContent = grandTotalCorrectMajority;
+    totalRow.insertCell().textContent = grandTotal > 0 ? (grandTotalCorrectMajority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+    totalRow.insertCell().textContent = grandTotalCorrectMinority;
+    totalRow.insertCell().textContent = grandTotal > 0 ? (grandTotalCorrectMinority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+    totalRow.insertCell().textContent = grandTotalIncorrectMajority;
+    totalRow.insertCell().textContent = grandTotal > 0 ? (grandTotalIncorrectMajority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+    totalRow.insertCell().textContent = grandTotalIncorrectMinority;
+    totalRow.insertCell().textContent = grandTotal > 0 ? (grandTotalIncorrectMinority * 100 / grandTotal).toFixed(2).replace('.', ',') + '%' : '0,00%';
+
+    totalRow.insertCell().textContent = grandTotal;
+
+    const totalConsensusCorrectness = (grandTotalCorrectMajority + grandTotalCorrectMinority > 0)
+        ? ((grandTotalCorrectMajority + grandTotalCorrectMinority) / grandTotal * 100).toFixed(2).replace('.', ',') + '%'
+        : '0,00%';
+    totalRow.insertCell().textContent = totalConsensusCorrectness;
+
+    const totalAttributeErrorRate = (grandTotalIncorrectMajority + grandTotalIncorrectMinority > 0)
+        ? ((grandTotalIncorrectMajority + grandTotalIncorrectMinority) / grandTotal * 100).toFixed(2).replace('.', ',') + '%'
+        : '0,00%';
+    totalRow.insertCell().textContent = totalAttributeErrorRate;
+}
+
+</script>
+</body>
+</html>

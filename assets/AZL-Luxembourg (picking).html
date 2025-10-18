@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Visualisation TSV</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
+  .container { display: flex; height: 100vh; }
+  .sidebar { width: 290px; border-right: 1px solid #ccc; overflow-y: auto; padding: 15px; background: #fafafa; }
+  .content { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #fefefe; }
+
+  h3 { margin-top: 0; color: #333; }
+
+  select, input[type=text], textarea, button { font-size: 13px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+  button { background-color: #4CAF50; color: white; border: none; cursor: pointer; transition: 0.3s; }
+  button:hover { background-color: #45a049; }
+  #judgeBtn { font-size: 14px; padding: 10px 18px; }
+
+  #hitidList { list-style: none; padding: 0; margin: 10px 0; }
+  #hitidList li { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+  #hitidList li:hover { background: #d8f0d8; }
+
+  #resultTable { border-collapse: collapse; width: 100%; margin-top: 20px; font-size:12px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  #resultTable th, #resultTable td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+  #resultTable th { background: #e6f2ff; }
+  #resultTable tr:nth-child(even) { background: #f9f9f9; }
+  #resultTable tr:hover { background: #d0e7ff; }
+
+  #imageContainer { 
+    position: absolute; top: 20px; left: 20px; border: 1px solid #aaa; overflow: hidden; 
+    background: #fff; z-index: 10; cursor: grab; display: none; transform-origin: top left;
+  }
+  #Image1 { display: block; width: 100%; height: 100%; object-fit: fill; }
+
+#notification {
+    position: fixed;
+    top: 50%;                   /* centre verticalement */
+    left: 50%;                  /* centre horizontalement */
+    transform: translate(-50%, -50%); /* ajuste le centrage exact */
+    background: linear-gradient(135deg, #4CAF50, #81C784); /* gradient plus attrayant */
+    color: #fff;
+    padding: 20px 30px;         /* plus grande taille pour visibilité */
+    font-size: 18px;            /* texte plus gros */
+    font-weight: bold;
+    border-radius: 10px;        /* coins arrondis plus visibles */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* effet d'ombre */
+    display: none;
+    z-index: 1000;              /* au-dessus de tout */
+    text-align: center;
+    animation: popIn 0.3s ease-out;
+}
+
+/* animation simple pour rendre l'apparition plus dynamique */
+@keyframes popIn {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+  #answerContainer { display: flex; align-items: flex-start; gap: 20px; margin-top: 10px; }
+  #Answer_CQ label { display: block; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
+  #commentContainer { display:flex; flex-direction:column; gap:6px; margin-left:20px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; box-shadow: 1px 1px 5px rgba(0,0,0,0.05); }
+
+  #sourceContainer { margin-bottom: 10px; }
+  #pasteArea { width:100%; height:100px; display:none; margin-top:5px; font-family: monospace; }
+
+textarea.commentBox { 
+  width: 1000px;   /* largeur fixe */
+  height: 30px;   
+  resize: none;   
+  overflow: hidden; 
+  font-size: 13px; 
+  padding: 3px; 
+  border-radius: 3px; 
+  border: 1px solid #ccc;
+  transition: 0.2s; 
+  background: #fff;
+}
+
+textarea.commentBox:focus { 
+  border-color: #4CAF50; 
+  background: #f0fff0; 
+}
+
+/* --- Reponse CQ simplifiée et colorée --- */
+#Answer_CQ label {
+  display: block;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+/* couleurs de fond différentes pour chaque option */
+#Answer_CQ label:nth-child(1) { background: #ffcccc; }
+#Answer_CQ label:nth-child(2) { background: #ffe0b3; }
+#Answer_CQ label:nth-child(3) { background: #ffffb3; }
+#Answer_CQ label:nth-child(4) { background: #d1ffb3; }
+#Answer_CQ label:nth-child(5) { background: #b3f0ff; }
+#Answer_CQ label:nth-child(6) { background: #e6ccff; }
+
+#Answer_CQ label:hover { opacity: 0.8; }
+
+#Answer_CQ input[type=checkbox] {
+  margin-right: 6px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+  <div class="sidebar">
+    <h3>Liste des HitId</h3>
+
+    <!-- Source select -->
+    <div id="sourceContainer">
+      <label for="sourceSelect">Fichier Source :</label><br>
+      <select id="sourceSelect">
+        <option value="file">fichier tsv</option>
+        <option value="paste">copier/coller</option>
+      </select>
+      <textarea id="pasteArea" placeholder="Collez votre TSV ici..."></textarea><br>
+      <input type="file" id="fileInput" accept=".tsv,.csv"><br><br>
+    </div>
+
+    <ul id="hitidList"></ul>
+  </div>
+
+<div class="content">
+  <label>Reponse CQ :</label>
+  <div id="answerContainer">
+    <div id="Answer_CQ"></div>
+    <button id="judgeBtn">Juge</button>
+</br>
+    <img id="previewImage" src="" alt="Preview" style="width:3cm;height:5cm;margin-left:10px;cursor:pointer;display:none;" />
+    <div id="commentContainer"></div>
+  </div>
+
+  <table id="resultTable"></table>
+</div>
+</div>
+
+<div id="imageContainer">
+  <img id="Image1" src="" alt="Image" />
+</div>
+<div id="notification">Jugé ✅</div>
+
+<script>
+// === code JS reste inchangé, juste ajouter la classe commentBox aux textarea ===
+const requiredHeaders = ["CQ/QAS","Date-Picking","Date-Prod","hitid","AssignmentId","workerid","key","assin_json","assin_juge_json","Commentaires","Statuts"];
+let globalData = [], currentHitid = null;
+const table = document.getElementById("resultTable");
+const imgContainer = document.getElementById("imageContainer");
+const imgElement = document.getElementById("Image1");
+let winScale = 1, winPosX = 0, winPosY = 0;
+
+const fileInput = document.getElementById("fileInput");
+const pasteArea = document.getElementById("pasteArea");
+const sourceSelect = document.getElementById("sourceSelect");
+
+sourceSelect.addEventListener("change",()=>{
+  if(sourceSelect.value === "file"){
+    fileInput.style.display="block";
+    pasteArea.style.display="none";
+  } else {
+    fileInput.style.display="none";
+    pasteArea.style.display="block";
+  }
+});
+
+fileInput.addEventListener("change", handleFile);
+pasteArea.addEventListener("input",()=>parseText(pasteArea.value));
+document.getElementById("judgeBtn").addEventListener("click", applyJudge);
+
+function handleFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  Papa.parse(file, { header:true, delimiter:"\t", skipEmptyLines:true,
+    complete: results => validateAndProcess(results)
+  });
+}
+
+function parseText(text){
+  if(!text) return;
+  Papa.parse(text, { header:true, delimiter:"\t", skipEmptyLines:true,
+    complete: results => validateAndProcess(results)
+  });
+}
+
+function validateAndProcess(results){
+  const headers = results.meta.fields;
+  const missing = requiredHeaders.filter(h=>!headers.includes(h));
+  if(missing.length>0){ alert("Colonnes manquantes: "+missing.join(", ")); return; }
+  globalData = results.data;
+  processData(globalData);
+}
+
+function processData(data){
+  const hitids = [...new Set(data.map(r=>r.hitid))];
+  const hitidList = document.getElementById("hitidList");
+  hitidList.innerHTML="";
+
+  hitids.forEach(h=>{
+    const li = document.createElement("li");
+    li.textContent = h;
+
+    // Vérifie si au moins une ligne du hitid a déjà été jugée
+    const filtered = data.filter(r=>r.hitid === h);
+    const alreadyJudged = filtered.some(r => r.assin_juge_json && r.assin_juge_json.trim() !== "");
+    if(alreadyJudged){
+      li.style.backgroundColor = "#b3ffb3"; // vert clair pour déjà jugé
+    }
+
+    li.addEventListener("dblclick", ()=>fillTable(data,h));
+    hitidList.appendChild(li);
+  });
+
+  // --- Création des options CQ reste inchangée ---
+  const options=[
+    "Substitute-Item is NEVER a good substitute of Target-Item",
+    "Substitute-Item could be an okay substitute of Target-Item",
+    "Substitute-Item is probably NOT a good substitute of Target-Item",
+    "Substitute-Item is probably a good substitute of Target-Item",
+    "Substitute-Item is always a good substitute of Target-Item",
+    "Not enough information"
+  ];
+  const container=document.getElementById("Answer_CQ");
+  container.innerHTML="";
+  options.forEach(opt=>{
+    const label=document.createElement("label");
+    const checkbox=document.createElement("input");
+    checkbox.type="checkbox"; checkbox.value=opt;
+    label.appendChild(checkbox); label.append(" "+opt);
+    container.appendChild(label);
+  });
+
+  if(hitids.length>0) fillTable(data,hitids[0]);
+}
+
+
+function fillTable(data, hitid){
+  currentHitid=hitid;
+  table.innerHTML="";
+  const filtered=data.filter(r=>r.hitid===hitid);
+  if(filtered.length===0) return;
+
+  const headerRow=document.createElement("tr");
+  Object.keys(filtered[0]).forEach(k=>{
+    const th=document.createElement("th");
+    th.textContent=k; headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+
+  const commentContainer=document.getElementById("commentContainer");
+  commentContainer.innerHTML="";
+
+  filtered.forEach((row,index)=>{
+    const tr=document.createElement("tr");
+    Object.values(row).forEach(val=>{
+      const td=document.createElement("td"); td.textContent=val; tr.appendChild(td);
+    });
+    table.appendChild(tr);
+
+    const commentBox=document.createElement("textarea");
+    commentBox.value=row.Commentaires||"";
+    commentBox.rows=1; commentBox.classList.add("commentBox");
+    commentBox.dataset.rowIndex=index;
+    commentContainer.appendChild(commentBox);
+  });
+
+  const checkboxes=document.querySelectorAll("#Answer_CQ input[type=checkbox]");
+  checkboxes.forEach(cb=>cb.checked=false);
+  const judgeValues=filtered[0].assin_juge_json;
+  if(judgeValues){
+    const judgeArray=judgeValues.split(",").map(s=>s.trim());
+    checkboxes.forEach(cb=>{ if(judgeArray.includes(cb.value)) cb.checked=true; });
+  }
+
+  const preview=document.getElementById("previewImage");
+  if(filtered[0].key){
+    preview.src=filtered[0].key; preview.style.display="block";
+    preview.onclick=()=>openImage(filtered[0].key);
+    if(imgContainer.style.display==="block") imgElement.src=filtered[0].key;
+  } else { preview.style.display="none"; }
+}
+
+function openImage(src){
+  imgElement.src=src;
+  imgContainer.style.display="block"; winScale=1; winPosX=0; winPosY=0;
+  imgElement.onload=()=>{ imgContainer.style.width=imgElement.naturalWidth+"px"; imgContainer.style.height=imgElement.naturalHeight+"px"; updateTransform(); }
+}
+
+function applyJudge(){
+  if(!currentHitid) return;
+  const container=document.getElementById("Answer_CQ");
+  const selectedArray=[...container.querySelectorAll("input:checked")].map(cb=>cb.value);
+  if(selectedArray.length===0){ alert("Aucune réponse donnée"); return; }
+  const selected=selectedArray.join(",");
+  globalData.filter(r=>r.hitid===currentHitid).forEach(r=>r.assin_juge_json=selected);
+
+  const commentBoxes=document.querySelectorAll("#commentContainer textarea");
+  commentBoxes.forEach(cb=>{
+    const rowIndex=parseInt(cb.dataset.rowIndex);
+    const filtered=globalData.filter(r=>r.hitid===currentHitid);
+    if(filtered[rowIndex]) filtered[rowIndex].Commentaires=cb.value;
+  });
+
+  fillTable(globalData,currentHitid);
+  showNotification();
+
+  const filtered=globalData.filter(r=>r.hitid===currentHitid);
+  if(filtered.length===0) return;
+  const keysToCopy=Object.keys(filtered[0]).filter(k=>"Statuts"!==k && k!=="preview_image");
+  const textToCopy=filtered.map(row=>keysToCopy.map(k=>row[k]).join("\t")).join("\n");
+  navigator.clipboard.writeText(textToCopy).then(()=>console.log("Tableau copié!")).catch(err=>console.error(err));
+}
+
+function showNotification(){ const notif=document.getElementById("notification"); notif.style.display="block"; setTimeout(()=>notif.style.display="none",1500); }
+function updateTransform(){ imgContainer.style.transform=`translate(${winPosX}px,${winPosY}px) scale(${winScale})`; }
+
+interact('#imageContainer')
+  .draggable({listeners:{move:event=>{ winPosX+=event.dx; winPosY+=event.dy; updateTransform(); }}})
+  .gesturable({listeners:{move:event=>{ winScale*=(1+event.ds); winScale=Math.min(Math.max(0.5,winScale),3.5); updateTransform(); }}});
+
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") imgContainer.style.display="none"; });
+imgContainer.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const delta=-e.deltaY*0.0015;
+  const prevScale=winScale;
+  winScale*=(1+delta);
+  winScale=Math.min(Math.max(0.5,winScale),3.5);
+  const rect=imgContainer.getBoundingClientRect();
+  winPosX-=(e.clientX-rect.left)*(winScale/prevScale-1);
+  winPosY-=(e.clientY-rect.top)*(winScale/prevScale-1);
+  updateTransform();
+});
+
+function adjustCommentWidth(textarea){
+  // Crée un span invisible pour mesurer la largeur
+  const span = document.createElement('span');
+  span.style.visibility = 'hidden';
+  span.style.whiteSpace = 'pre';
+  span.style.font = getComputedStyle(textarea).font;
+  span.textContent = textarea.value || textarea.placeholder || "a";
+  document.body.appendChild(span);
+  const width = Math.min(Math.max(span.offsetWidth + 20, 100), 350); // largeur min/max
+  textarea.style.width = width + "px";
+  document.body.removeChild(span);
+}
+
+// Ajouter listener sur chaque textarea commentaire
+document.querySelectorAll("textarea.commentBox").forEach(tb=>{
+  adjustCommentWidth(tb);
+  tb.addEventListener("input",()=>adjustCommentWidth(tb));
+});
+
+// --- Reponse CQ stylisée ---
+function buildCQOptions(options){
+  const container=document.getElementById("Answer_CQ");
+  container.innerHTML="";
+  options.forEach(opt=>{
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type="checkbox"; checkbox.value=opt;
+    const span = document.createElement("span");
+    span.textContent = opt;
+    label.appendChild(checkbox);
+    label.appendChild(span);
+    container.appendChild(label);
+
+    // actualiser style lors du clic
+    checkbox.addEventListener("change", ()=>{ span.style.background = checkbox.checked ? "#4CAF50" : "#f0f0f0"; span.style.color = checkbox.checked ? "white" : "black"; });
+  });
+}
+
+</script>
+</body>
+</html>

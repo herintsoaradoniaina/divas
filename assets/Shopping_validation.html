@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse des données</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        textarea { width: 100%; height: 150px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border: 1px solid black; padding: 3px; text-align: left; }
+        th { background-color: black; color: white; }
+        .highlight { background-color: lightcoral; }
+        .valid { background-color: lightgreen; }
+		div {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+label {
+    width: 150px;
+    font-weight: bold;
+}
+
+input {
+    width: 80px;
+    text-align: right;
+    padding: 5px;
+    font-size: 14px;
+}
+textarea {
+    height: 100px; /* Ajustez selon votre besoin */
+    font-size: 14px;
+    padding: 5px;
+}
+input {
+    width: 80px;
+    height: 10px; /* Ajustez selon votre besoin */
+    text-align: right;
+    padding: 3px;
+    font-size: 14px;
+}
+
+    </style>
+</head>
+<body>
+    <textarea id="inputData" placeholder="Collez vos données ici..."></textarea>
+    <br>
+    <div><label>Total Saisie: </label>
+    <input type="text" id="total_result" readonly></div>
+    <div><label>Total Sur Facture: </label>
+    <input type="text" id="total_facture" oninput="calculateDifference()"></div>
+    <div><label>Différence: </label>
+    <input type="text" id="difference" readonly></div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Qty</th>
+                <th>Price</th>
+            </tr>
+        </thead>
+        <tbody id="dataTable"></tbody>
+    </table>
+
+    <script>
+        function calculateDifference() {
+            let totalFacture = parseFloat(document.getElementById("total_facture").value.replace(",", ".")) || 0;
+            let totalSaisie = parseFloat(document.getElementById("total_result").value) || 0;
+            let difference = totalFacture - totalSaisie;
+            let diffField = document.getElementById("difference");
+            diffField.value = difference.toFixed(2);
+            
+            if (difference.toFixed(2) === "0.00") {
+                diffField.className = "valid";
+            } else {
+                diffField.className = "highlight";
+            }
+        }
+
+        document.getElementById("inputData").addEventListener("input", function () {
+            let text = this.value.trim();
+            let lines = text.split(/\n+/);
+            let tbody = document.getElementById("dataTable");
+            tbody.innerHTML = "";
+            let total = 0;
+            
+            const specialNames = ["Nuolaida", "Gala", "cena", "atlaidi", "Reduction", "Rabatt", "Rabat"];
+
+            function normalizeName(name) {
+                const accents = {
+                    'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss', 'é': 'e', 'è': 'e', 'ê': 'e', 'à': 'a', 'ç': 'c',
+                    'š': 's', 'ž': 'z', 'ū': 'u', 'ø': 'o', 'ï': 'i', 'ë': 'e', 'ñ': 'n', 'â': 'a', 'ô': 'o',
+                    'î': 'i', 'û': 'u', 'ý': 'y', 'á': 'a', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ã': 'a', 'õ': 'o', 'ğ': 'g',
+                    'ş': 's', 'č': 'c', 'ď': 'd', 'ě': 'e', 'ľ': 'l', 'ň': 'n', 'ř': 'r', 'šť': 'st', 'ů': 'u'
+                };
+                return name.replace(/[äöüßéèêàçšžūøïëñâôîûýáíóúãõğşčďěľňřšťů]/g, m => accents[m] || m);
+            }
+
+            for (let i = 0; i < lines.length; i += 4) {
+                if (i + 3 >= lines.length) break;
+                
+                let name = normalizeName(lines[i].trim());
+                let code = lines[i + 1].trim().startsWith("eg.") ? "" : lines[i + 1].trim();
+                let qty = lines[i + 2].trim() ? parseFloat(lines[i + 2].trim().replace(",", ".")) : 1;
+                let price = parseFloat(lines[i + 3].trim().replace(",", ".")) || 0;
+                total += price;
+                
+                let highlightRow = price < 0 || specialNames.some(keyword => name.includes(keyword)) ? "highlight" : "";
+                
+                let row = `<tr class="${highlightRow}">
+                    <td>${name}</td>
+                    <td>${code}</td>
+                    <td>${qty.toFixed(2)}</td>
+                    <td>${price.toFixed(2)}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            }
+            document.getElementById("total_result").value = total.toFixed(2);
+            calculateDifference();
+        });
+		
+		document.getElementById("inputData").addEventListener("dblclick", function () {
+    this.value = ""; // Efface uniquement le contenu de la textarea
+});
+
+		
+    </script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSV Parser</title>
+    <script src="papaparse_rado.js"></script>
+    <style>
+        input, select, button {
+            padding: 10px 15px;
+            margin: 10px 5px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            outline: none;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Ajustement général */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 12px; /* Police plus petite */
+        }
+
+        .table-container {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed; /* Pour que les colonnes prennent une largeur égale */
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #ccc;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis; /* Pour ajouter les ellipses si le texte est trop long */
+        }
+
+        th {
+            background-color: #000; /* Fond noir pour l'en-tête */
+            color: white; /* Texte blanc pour l'en-tête */
+            position: sticky;
+            top: 0; /* Fixer l'en-tête en haut lors du défilement */
+            z-index: 1;
+        }
+
+        td:first-child {
+            max-width: 150px; /* Limite de largeur pour la première colonne */
+        }
+		
+		th:nth-child(2), td:nth-child(2) {
+		width: 50px; /* Ajuste la largeur selon tes besoins */
+		text-align: center; /* Centre le texte pour plus de lisibilité */
+	}
+
+        /* Dégradé de couleurs plus foncées pour les cellules */
+		.dark-green-light { background-color: #76d76d; }  /* Vert clair foncé */
+		.green-medium { background-color: #4caf50; }      /* Vert moyen */
+		.dark-yellow-light { background-color: #f2e54d; } /* Jaune clair foncé */
+		.yellow-medium { background-color: #ffcc00; }     /* Jaune moyen */
+		.dark-red-light { background-color: #f58c8c; }    /* Rouge clair foncé */
+    </style>
+</head>
+<body>
+    <input type="file" id="fileInput" accept=".tsv">
+    <div><button onclick="parseFile()">Parse</button>
+	<button onclick="copyTable()">Copy Table</button></div>
+    <h2>Attribute Rate Across Responses</h2>
+    <div class="table-container">
+        <table border="1" id="consensusTable">
+            <thead>
+                <tr>
+                    <th>HITId</th>
+                    <th>NB Assnt</th>
+                    <th>asin1</th>
+                    <th>asin2</th>
+                    <th>asin3</th>
+                    <th>asin4</th>
+                    <th>asin5</th>
+                    <th>asin6</th>
+                    <th>asin7</th>
+                    <th>asin8</th>
+                    <th>asin9</th>
+                    <th>asin10</th>
+                    <th>Highest Attribut</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    
+    <script>
+        function showNotification(message) {
+            const notification = document.createElement("div");
+            Object.assign(notification.style, {
+                position: "fixed",
+                top: "20px",
+                right: "20px",
+                backgroundColor: "green",
+                color: "white",
+                padding: "10px",
+                borderRadius: "5px",
+                fontWeight: "bold",
+                boxShadow: "0px 0px 10px rgba(0, 0, 0, 0.2)"
+            });
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function parseFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files.length) {
+                alert('Veuillez choisir un fichier TSV.');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            Papa.parse(file, {
+                delimiter: "\t",
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processData(results.data);
+                }
+            });
+        }
+
+        function processData(data) {
+            const requiredHeaders = ["Source.name", "Answer.output_data", "HITId", "WorkerId"];
+            
+            if (!requiredHeaders.every(header => data[0].hasOwnProperty(header))) {
+                alert('Les en-têtes requises ne sont pas toutes présentes.');
+                return;
+            }
+            
+            generateResultTable(data);
+        }
+
+        function generateResultTable(data) {
+            const tableBody = document.getElementById('consensusTable').querySelector('tbody');
+            tableBody.innerHTML = "";
+            let hitIdMap = {};
+
+            data.forEach(row => {
+                let hitId = row["HITId"];
+                let workerId = row["WorkerId"];
+                let answers = JSON.parse(row["Answer.output_data"] || '{}');
+                
+                if (!hitIdMap[hitId]) {
+                    hitIdMap[hitId] = {WorkerId_count: 0, ASINs: {}};
+                }
+                hitIdMap[hitId].WorkerId_count++;
+                
+                Object.keys(answers).forEach(asin => {
+                    if (!hitIdMap[hitId].ASINs[asin]) {
+                        hitIdMap[hitId].ASINs[asin] = {};
+                    }
+                    Object.keys(answers[asin]).forEach(attr => {
+                        if (answers[asin][attr]) {
+                            hitIdMap[hitId].ASINs[asin][attr] = (hitIdMap[hitId].ASINs[asin][attr] || 0) + 1;
+                        }
+                    });
+                });
+            });
+
+            Object.keys(hitIdMap).forEach(hitId => {
+                let row = tableBody.insertRow();
+                row.insertCell().textContent = hitId;
+                row.insertCell().textContent = hitIdMap[hitId].WorkerId_count;
+                
+                let asins = Object.keys(hitIdMap[hitId].ASINs);
+                let highestAttr = "";
+                let maxCount = 0;
+                
+                for (let i = 0; i < 10; i++) {
+					let cell = row.insertCell();
+					if (asins[i]) {
+						let attributes = hitIdMap[hitId].ASINs[asins[i]];
+						let maxAttr = Object.entries(attributes).sort((a, b) => b[1] - a[1])[0];
+
+						if (maxAttr) {
+							// Calcul du pourcentage
+							let percentage = ((maxAttr[1] / hitIdMap[hitId].WorkerId_count) * 100).toFixed(2);
+
+							// Mise à jour de la cellule avec la nouvelle structure d'affichage
+							//cell.textContent = `(${percentage}%) ${maxAttr[0]}`;
+							cell.innerHTML = `<strong>${percentage}%</strong><br>${maxAttr[0]}`;
+
+							// Ajout de la classe de couleur en fonction du pourcentage
+							let colorClass = getColorClass(percentage);
+							cell.classList.add(colorClass);
+
+							if (maxAttr[1] > maxCount) {
+								highestAttr = `(${percentage}%) ${maxAttr[0]}`;
+								
+								maxCount = maxAttr[1];
+							}
+						}
+					}
+				}
+                row.insertCell().textContent = highestAttr;
+            });
+            
+            showNotification("Process Terminée");
+        }
+
+        function getColorClass(percentage) {
+			if (percentage === 100) return 'dark-green-light';  // Changement de 'green-light' à 'dark-green-light'
+			if (percentage >= 90) return 'green-medium';        // Garde 'green-medium' inchangé
+			if (percentage >= 70) return 'dark-yellow-light';   // Changement de 'yellow-light' à 'dark-yellow-light'
+			if (percentage >= 40) return 'yellow-medium';      // Garde 'yellow-medium' inchangé
+		return 'dark-red-light';                           // Changement de 'red-light' à 'dark-red-light'
+	}
+//copier table
+function copyTable() {
+    let table = document.getElementById('consensusTable');
+    let range = document.createRange();
+    range.selectNode(table);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
+    window.getSelection().removeAllRanges();
+    showNotification("Table copied!");
+}
+
+    </script>
+</body>
+</html>

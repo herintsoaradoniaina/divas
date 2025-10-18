@@ -1,0 +1,142 @@
+/* Style pour le conteneur principal */
+.main-content {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Style pour les paires de tables */
+.table-pair {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px; /* Espacement entre les paires de tables */
+}
+
+/* Style pour les tables */
+table {
+    border-collapse: collapse;
+    width: 48%; /* Ajustez la largeur si nécessaire */
+    margin-right: 2%; /* Espacement entre les tables */
+}
+
+/* Réinitialisation de la marge pour la dernière table de chaque paire */
+.table-pair table:last-child {
+    margin-right: 0;
+}
+
+/* Style optionnel pour le texte des en-têtes de table */
+th {
+    background-color: #f2f2f2;
+    padding: 8px;
+}
+
+
+/* Styles de base */
+body {
+    font-family: Arial, sans-serif;
+    background-color: transparent; /* Rend le fond transparent */
+    color: #333; /* Couleur du texte principale */
+}
+
+h1 {
+    text-align: center;
+    color: black;
+    margin-bottom: 20px;
+}
+
+/* Style pour les tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px; /* Espacement entre les tables */
+    font-size: 12px;
+    background-color: white; /* Arrière-plan blanc pour les tables */
+}
+
+table caption {
+    background-color: black;
+    color: white;
+    font-weight: bold;
+    padding: 10px;
+    text-align: center;
+}
+
+table th, table td {
+    padding: 8px;
+    border: 1px solid #ddd;
+}
+
+table th {
+    background-color: black;
+    color: white;
+    font-weight: bold;
+}
+
+table tr:nth-child(even) {
+    background-color: #f9f9f9; /* Couleur de fond alternée pour les lignes */
+}
+
+table tr:nth-child(odd) {
+    background-color: white;
+}
+
+table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* Style des boutons */
+button {
+    background-color: black;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    margin: 5px;
+}
+
+button:hover {
+    background-color: #333;
+}
+
+/* Style du champ de sélection de fichier */
+.file-input {
+    background-color: black;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin: 5px;
+    cursor: pointer;
+}
+
+.file-input-label {
+    background-color: black;
+    color: white;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+/* Conteneur pour les tables et options */
+.tables-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.options-container {
+    margin-bottom: 20px;
+}
+
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JUSTIFICATIF to FORM</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Generer Form</h1>
+
+    <label for="date">Date:</label>
+    <input type="date" id="date" required><br><br>
+
+    <label for="project">Projet:</label>
+    <select id="project" required>
+        	<option value="AIN-LMR-CADE">AIN-LMR-CADE</option>
+	   	<option value="AIN-LMR-CODE">AIN-LMR-CODE</option>
+		<option value="AIN-LMR-CAUI">AIN-LMR-CAUI</option>
+		<option value="AIN-LMR-CBU2">AIN-LMR-CBU2</option>
+		<option value="AIN-LMR-CBUI">AIN-LMR-CBUI</option>
+		<option value="AIN-LMR-FAUI">AIN-LMR-FAUI</option>
+		<option value="AIN-LMR-FBUI">AIN-LMR-FBUI</option>
+		<option value="AIN-LMR-FOJP">AIN-LMR-FOJP</option>
+		<option value="AIN-LMR-FOUI">AIN-LMR-FOUI</option>
+
+    </select><br><br>
+
+    <label for="sourceData">JUSTIFICATIF A COLLER ICI:</label><br>
+    <textarea id="sourceData" rows="10" cols="100" placeholder="Justificatif à coller ici ... "></textarea><br><br>
+
+    <button id="generateBtn">Generate Form</button>
+
+    <h2>Résultats</h2>
+    <table id="table_forme">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Matricule CQ</th>
+                <th>Projet</th>
+                <th>Batch</th>
+                <th>Types</th>
+                <th>Matricule</th>
+                <th>Lien</th>
+                <th>OK/KO</th>
+                <th>Lien capture/erreur smarter</th>
+                <th>Commentaire CQ</th>
+                <th>Marketplace</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="message"></div>
+
+    <script>
+        document.getElementById('generateBtn').addEventListener('click', function () {
+            const sourceData = document.getElementById('sourceData').value.trim();
+            const date = document.getElementById('date').value;
+            const project = document.getElementById('project').value;
+
+            if (!sourceData || !date || !project) {
+                alert("Veuillez remplir tous les champs et coller les données sources.");
+                return;
+            }
+
+            const rows = sourceData.split('\n');
+            const headers = rows[0].split('\t');
+
+            const requiredHeaders = ["Source,name", "CQ/QAS", "WorkerId", "Input.imageURL", "Answer.output_data", "Status", "Commentaire", "Market place"];
+            const missingHeaders = requiredHeaders.filter(header => !headers.includes(header));
+
+            if (missingHeaders.length > 0) {
+                alert("Colonnes manquantes: " + missingHeaders.join(', '));
+                return;
+            }
+
+            const tableBody = document.querySelector('#table_forme tbody');
+            tableBody.innerHTML = '';  // Clear the table
+
+            rows.slice(1).forEach(row => {
+                const cols = row.split('\t');
+                const rowData = {};
+
+                headers.forEach((header, index) => {
+                    rowData[header] = cols[index];
+                });
+
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${date}</td>
+                    <td>${rowData["CQ/QAS"]}</td>
+                    <td>${project}</td>
+                    <td>${rowData["Source,name"]}</td>
+                    <td>Production</td>
+                    <td>${rowData["WorkerId"]}</td>
+                    <td><a href="${rowData["Input.imageURL"]}" target="_blank">${rowData["Input.imageURL"]}</a></td>
+                    <td>${rowData["Status"]}</td>
+                    <td>${rowData["Status"] === 'OK' ? '' : rowData["Answer.output_data"]}</td>
+                    <td>${rowData["Status"] === 'OK' ? '' : rowData["Commentaire"]}</td>
+                    <td>${rowData["Market place"]}</td>
+                `;
+                tableBody.appendChild(newRow);
+            });
+
+            document.getElementById('message').innerText = 'Formulaire généré avec succès!';
+        });
+
+        // Fonctionnalité de copie du contenu de la table
+        const table = document.getElementById('table_forme');
+        table.addEventListener('click', function() {
+            const range = document.createRange();
+            range.selectNode(table);
+            window.getSelection().removeAllRanges(); // Clear any previous selections
+            window.getSelection().addRange(range);
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    alert('Le contenu du tableau a été copié dans le presse-papiers.');
+                } else {
+                    alert('Échec de la copie.');
+                }
+            } catch (err) {
+                alert('Erreur lors de la tentative de copie: ' + err);
+            }
+
+            window.getSelection().removeAllRanges(); // Clear the selection
+        });
+    </script>
+</body>
+</html>
