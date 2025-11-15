@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Yappers table</title>
+
+<style>
+    body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        padding: 25px;
+        background: #f5f6fa;
+        text-align: center;
+    }
+
+    h2 {
+        margin-bottom: 15px;
+        color: #34495e;
+        font-size: 28px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    table {
+        margin: auto;
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 1200px;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        text-align: center;
+    }
+
+    /* En-tête Données des Statuts */
+    .th-statuts {
+        background: #2c3e50;
+        color: white;
+    }
+
+    /* En-tête Données à saisir */
+    .th-saisir {
+        background: #3b5780;
+        color: white;
+    }
+
+    th {
+        font-weight: 600;
+        padding: 10px;
+        font-size: 14px;
+        text-align: center;
+    }
+
+    td {
+        padding: 8px;
+        border-bottom: 1px solid #ddd;
+        text-align: center;
+    }
+
+    input {
+        width: 95%;
+        padding: 6px 4px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #ffffff;
+        transition: 0.15s;
+        text-align: center;
+    }
+
+    input:focus {
+        outline: none;
+        border-color: #2980b9;
+        box-shadow: 0 0 4px rgba(41, 128, 185, 0.4);
+    }
+
+    /* Readonly fields (non accessibles par Tab) */
+    .readonly {
+        background: #ecf0f1;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .readonly:hover {
+        background: #dfe6e9;
+    }
+
+    /* Supprime le focus Tab sur readonly */
+    .readonly:focus {
+        outline: none;
+    }
+    .readonly {
+        pointer-events: auto; 
+    }
+
+    /* Empêche TAB sur readonly */
+    .readonly {
+        tabindex: -1;
+    }
+
+    /* Footer */
+    tfoot th {
+        background: #34495e !important;
+        color: #ecf0f1;
+        font-size: 15px;
+        padding: 10px;
+        border-top: 2px solid #2c3e50;
+        text-align: center;
+    }
+#clearBtn {
+    position: absolute;
+    top: 20px;
+    left: 25px;
+    background: #c0392b;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.15s;
+}
+
+#clearBtn:hover {
+    background: #e74c3c;
+}
+
+</style>
+</head>
+
+<body>
+<button id="clearBtn" onclick="clearTable()">Clear</button>
+<h2>Yappers table</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th colspan="4" class="th-statuts">Données des statuts</th>
+            <th colspan="2" class="th-saisir">Données à saisir</th>
+        </tr>
+
+        <tr>
+            <th class="th-statuts">Noms</th>
+            <th class="th-statuts">Toute-propriété</th>
+            <th class="th-statuts">Nue-Propriété</th>
+            <th class="th-statuts">Usufruit</th>
+            <th class="th-saisir">Nue-propriété</th>
+            <th class="th-saisir">Usufruit</th>
+        </tr>
+    </thead>
+
+    <tbody id="table-body"></tbody>
+
+    <tfoot>
+        <tr>
+            <th>Sous-total</th>
+            <th id="st_tp">0</th>
+            <th id="st_np">0</th>
+            <th id="st_us">0</th>
+            <th id="st_np_s">0</th>
+            <th id="st_us_s">0</th>
+        </tr>
+
+        <tr>
+            <th>Soit ensemble</th>
+            <th colspan="3" id="soit_ensemble">0</th>
+            <th colspan="2"></th>
+        </tr>
+    </tfoot>
+</table>
+
+<script>
+// Nombre de lignes
+const ROWS = 10;
+
+// Créer lignes
+function createRow(i) {
+    return `
+    <tr>
+        <td><input class="name" type="text" maxlength="20" oninput="lettersOnly(this)"></td>
+
+        <td><input class="tp" type="text" oninput="numbersOnly(this); compute();"></td>
+        <td><input class="np" type="text" oninput="numbersOnly(this); compute();"></td>
+        <td><input class="us" type="text" oninput="numbersOnly(this); compute();"></td>
+
+        <td><input class="readonly np_s" type="text" readonly onclick="copyValue(this)" tabindex="-1"></td>
+        <td><input class="readonly us_s" type="text" readonly onclick="copyValue(this)" tabindex="-1"></td>
+    </tr>`;
+}
+
+document.getElementById("table-body").innerHTML =
+    Array.from({length: ROWS}, (_, i) => createRow(i)).join("");
+
+// Filtre chiffres
+function numbersOnly(field) {
+    field.value = field.value.replace(/[^0-9]/g, "");
+}
+
+// Filtre lettres
+function lettersOnly(field) {
+    field.value = field.value.replace(/[^a-zA-Z ]/g, "");
+}
+
+// Copier auto par clic
+function copyValue(field) {
+    field.select();
+    navigator.clipboard.writeText(field.value);
+}
+
+function compute() {
+    let st_tp = 0, st_np = 0, st_us = 0;
+    let st_np_s = 0, st_us_s = 0;
+
+    const rows = document.querySelectorAll("#table-body tr");
+
+    rows.forEach(row => {
+        const tp = Number(row.querySelector(".tp").value || 0);
+        const np = Number(row.querySelector(".np").value || 0);
+        const us = Number(row.querySelector(".us").value || 0);
+
+        const np_s = tp + np;
+        const us_s = tp + us;
+
+        row.querySelector(".np_s").value = np_s;
+        row.querySelector(".us_s").value = us_s;
+
+        st_tp += tp;
+        st_np += np;
+        st_us += us;
+        st_np_s += np_s;
+        st_us_s += us_s;
+    });
+
+    document.getElementById("st_tp").textContent = st_tp;
+    document.getElementById("st_np").textContent = st_np;
+    document.getElementById("st_us").textContent = st_us;
+    document.getElementById("st_np_s").textContent = st_np_s;
+    document.getElementById("st_us_s").textContent = st_us_s;
+
+    document.getElementById("soit_ensemble").textContent = st_tp + st_np + st_us;
+}
+
+function clearTable() {
+    // Effacer tous les inputs normaux
+    document.querySelectorAll("#table-body input:not(.readonly)").forEach(input => {
+        input.value = "";
+    });
+
+    // Effacer les valeurs readonly
+    document.querySelectorAll("#table-body .readonly").forEach(input => {
+        input.value = "";
+    });
+
+    // Réinitialiser les totaux
+    document.getElementById("st_tp").textContent = "0";
+    document.getElementById("st_np").textContent = "0";
+    document.getElementById("st_us").textContent = "0";
+    document.getElementById("st_np_s").textContent = "0";
+    document.getElementById("st_us_s").textContent = "0";
+    document.getElementById("soit_ensemble").textContent = "0";
+}
+
+</script>
+
+</body>
+</html>
