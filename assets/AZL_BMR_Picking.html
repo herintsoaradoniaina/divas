@@ -278,7 +278,8 @@ fileInput.onchange = e => {
   const file = e.target.files[0];
   if (!file) return;
   currentFileName = file.name;
-  document.getElementById("loadedFileName").textContent = file.name;
+  document.getElementById("loadedFileName").innerHTML =
+    file.name + ' <img src="icegif-611.gif" style="width:16px; vertical-align:middle; margin-left:6px;">';
 
 
 
@@ -539,3 +540,4 @@ exportResultBtn.onclick = () => {
 
 </body>
 </html>
+
