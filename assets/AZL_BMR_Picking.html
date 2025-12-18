@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>TSV Judge Interface – Compact</title>
+<div id="loadedFileName"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+#loadedFileName {
+  text-align: center;
+  font-weight: bold;
+  color: #003366;      /* bleu foncé */
+  font-size: 14px;
+  margin: 8px 0 12px;
+}
+body{
+  font-family:Arial;
+  font-size:11px;
+  background:#f4f4f4;
+  padding:10px;
+}
+.container{
+  background:#fff;
+  padding:12px;
+  max-width:1800px;
+  margin:auto;
+  border-radius:6px;
+}
+button{
+  padding:4px 8px;
+  font-size:11px;
+  cursor:pointer;
+}
+.top-bar{
+  display:grid;
+  grid-template-columns:repeat(8,1fr);
+  gap:6px;
+  margin:10px 0;
+}
+.top-bar > div{
+  background:#f1f1f1;
+  padding:4px;
+  border-radius:4px;
+}
+.top-bar span{
+  font-size:10px;
+  font-weight:bold;
+  color:#555;
+  display:block;
+}
+.top-bar div div{
+  word-break:break-all;
+}
+.judge-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+}
+.judge-table th,
+.judge-table td{
+  border:1px solid #ccc;
+  padding:4px;
+  vertical-align:top;
+}
+.judge-table th{
+  background:#222;
+  color:#fff;
+}
+.match{background:#d4edda;}
+.mismatch{background:#f8d7da;}
+textarea, select{
+  width:100%;
+  font-size:11px;
+  padding:3px;
+}
+.status{
+  font-weight:bold;
+  margin-top:6px;
+}
+a{color:blue;text-decoration:underline;}
+textarea.judge-input {
+    width: 374px;   /* largeur fixe comme ton exemple */
+    height: 59px;   /* hauteur fixe comme ton exemple */
+    box-sizing: border-box; /* inclut padding/border dans la taille */
+    font-size: 11px;
+    padding: 3px;
+    resize: none; /* empêche de redimensionner manuellement */
+}
+#positionSelect {
+  width: 7%;
+  font-size: 18px;
+  padding: 6px;
+}
+
+.both-ok-btn {
+  margin-left: 4px;
+  height: 30px;
+  padding: 0 10px;
+  background-color: #007bff; /* bleu */
+  color: #fff;               /* texte blanc */
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.both-ok-btn:hover {
+  background-color: #0056b3;
+}
+
+.both-ok-btn:active {
+  background-color: #004494;
+}
+
+#exportResultBtn {
+  margin: 10px 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: bold;
+  background-color: #28a745; /* vert */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+#exportResultBtn:hover {
+  background-color: #218838;
+}
+
+#exportResultBtn:active {
+  background-color: #1e7e34;
+  transform: scale(0.97);
+}
+
+#exportResultBtn:disabled {
+  background-color: #b5dfc0;
+  color: #eee;
+  cursor: not-allowed;
+}
+
+#openBtn {
+  margin-left: 4px;
+  height: 30px;
+  padding: 0 10px;
+  background-color: #007bff; /* bleu */
+  color: #fff;               /* texte blanc */
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+#openBtn:hover {
+  background-color: #0056b3;
+}
+
+#openBtn:active {
+  background-color: #004494;
+}
+
+#saveBtn {
+  display: none;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>Interface TSV – Juge</h2>
+
+<button id="openBtn">Open TSV</button>
+<input type="file" id="fileInput" accept=".tsv" hidden>
+
+
+  <strong>Line position :</strong>
+  <select id="positionSelect"></select>
+
+</br>
+<button id="saveBtn">Save</button>
+<button id="exportResultBtn"
+        style="margin:10px 0; padding:6px 14px; font-weight:bold;">
+  Exporter Resultat
+</button>
+
+
+<!-- 🔹 INFOS PRODUIT -->
+<div class="top-bar">
+  <div><span>Keywords</span><div id="keywords"></div></div>
+  <div><span>First OS ASIN</span><div id="osAsin"></div></div>
+  <div><span>First SP ASIN</span><div id="spAsin"></div></div>
+  <div><span>Sparkle ASIN</span><div id="sparkleAsin"></div></div>
+  <div><span>categorizeParentBrandOne</span><div id="catPB1"></div></div>
+  <div><span>parentBrandOne</span><div id="pb1"></div></div>
+  <div><span>categorizeBrandTypeOne</span><div id="catBT1"></div></div>
+  <div><span>copyAndPasteBrandOne</span><div id="cpb1"></div></div>
+</div>
+
+<table class="judge-table">
+<thead>
+<tr>
+  <th>Libellés</th>
+  <th>Smarter 1</th>
+  <th>Smarter 2</th>
+  <th>Réponse Juge</th>
+</tr>
+</thead>
+<tbody id="judgeTableBody"></tbody>
+</table>
+
+<br>
+<span id="copyNotification" style="display:none;color:green;margin-left:8px;">Copié !</span>
+</div>
+
+<<script>
+/* =========================================================
+   CONFIGURATION GÉNÉRALE
+   ========================================================= */
+
+const linkCols = [
+  "exactAsinNeededCheckLocaleInUrl",
+  "exactProductLinkNeededCheckLocaleInUrl"
+];
+
+let rawData = [], headers = [], positions = [];
+let smartIndexMap = {};
+let linePosIndex = -1;
+let matriculeIndex = -1;
+let currentFileName = "";
+
+/* Colonnes Smarter */
+const smartCols = [
+  "exactAsinNeededCheckLocaleInUrl",
+  "isSparkleAsinAMatchCheckBrandOnly",
+  "isSparkleAsinAMatchCheckBothPtAndBrand",
+  "isSpAsinAMatchCheckBrandOnly",
+  "isSpAsinAMatchCheckBothPtAndBrand",
+  "isOsAsinAMatchCheckBrandOnly",
+  "isOsAsinAMatchCheckBothPtAndBrand",
+  "whereIsProductAvailableBrandOnly",
+  "whereIsProductAvailable",
+  "exactProductLinkNeededCheckLocaleInUrl",
+  "comments"
+];
+
+/* Champs produit */
+const topFields = [
+  "keywords",
+  "first_os_asin",
+  "first_sp_asin",
+  "sparkle_first_asin",
+  "categorizeParentBrandOne",
+  "parentBrandOne",
+  "categorizeBrandTypeOne",
+  "copyAndPasteBrandOne"
+];
+
+/* =========================================================
+   FONCTION MANQUANTE
+   ========================================================= */
+
+function updateJudgeStatus() {
+  // Fonction vide pour éviter l'erreur
+  // Tu peux ajouter du code ici si tu veux afficher le statut
+}
+
+/* =========================================================
+   OUVERTURE FICHIER
+   ========================================================= */
+
+openBtn.onclick = () => fileInput.click();
+
+fileInput.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  currentFileName = file.name;
+  document.getElementById("loadedFileName").textContent = file.name;
+
+
+
+  Papa.parse(file, {
+    delimiter: "\t",
+    skipEmptyLines: true,
+    complete: r => {
+
+      headers = r.data[1];
+      rawData = r.data.slice(2);
+      smartIndexMap = {};
+
+      headers.forEach((h, i) => {
+        if ((smartCols.includes(h) || topFields.includes(h)) && smartIndexMap[h] === undefined) {
+          smartIndexMap[h] = i;
+        }
+      });
+
+      linePosIndex = headers.indexOf("line_position");
+      matriculeIndex = headers.indexOf("MATRICULE");
+
+      const counter = {};
+      rawData.forEach(r => {
+        const p = r[linePosIndex];
+        counter[p] = (counter[p] || 0) + 1;
+      });
+
+      positions = Object.keys(counter)
+        .filter(p => counter[p] === 2)
+        .sort((a, b) => a - b);
+
+      positionSelect.innerHTML = "";
+      positions.forEach(p => positionSelect.add(new Option(p, p)));
+      positionSelect.onchange = updateByPosition;
+
+      if (positions.length) {
+        positionSelect.value = positions[0];
+        updateByPosition();
+      }
+    }
+  });
+};
+
+/* =========================================================
+   OUTILS
+   ========================================================= */
+
+const link = v => v ? `<a href="${v}" target="_blank">${v}</a>` : "";
+const getStorageKey = () => `judge_${currentFileName}_${positionSelect.value}`;
+
+/* =========================================================
+   CHARGEMENT PAIRE
+   ========================================================= */
+
+function updateByPosition() {
+  const pos = positionSelect.value;
+  const pair = rawData.filter(r => r[linePosIndex] === pos);
+  if (pair.length !== 2) return;
+  renderRow(pair[0], pair[1]);
+  loadLocalJudge();
+  updateJudgeStatus();
+}
+
+/* =========================================================
+   RENDU
+   ========================================================= */
+
+function renderRow(r1, r2) {
+
+  document.querySelector(".judge-table thead").innerHTML = `
+    <tr>
+      <th>Attributs</th>
+      <th>${r1[matriculeIndex] || "MATRICULE 1"}</th>
+      <th>${r2[matriculeIndex] || "MATRICULE 2"}</th>
+      <th>Juge/CQ</th>
+    </tr>
+  `;
+
+  keywords.textContent = r1[smartIndexMap.keywords] || "";
+  osAsin.innerHTML = link(r1[smartIndexMap.first_os_asin]);
+  spAsin.innerHTML = link(r1[smartIndexMap.first_sp_asin]);
+  sparkleAsin.innerHTML = link(r1[smartIndexMap.sparkle_first_asin]);
+  catPB1.textContent = r1[smartIndexMap.categorizeParentBrandOne] || "";
+  pb1.textContent = r1[smartIndexMap.parentBrandOne] || "";
+  catBT1.textContent = r1[smartIndexMap.categorizeBrandTypeOne] || "";
+  cpb1.textContent = r1[smartIndexMap.copyAndPasteBrandOne] || "";
+
+  judgeTableBody.innerHTML = "";
+
+  smartCols.forEach(col => {
+
+    const s1 = (r1[smartIndexMap[col]] || "").trim();
+    const s2 = (r2[smartIndexMap[col]] || "").trim();
+    const same = s1 === s2;
+
+    let input = `
+      <select data-col="${col}" onchange="onJudgeChange()">
+        <option></option>
+        <option>yes</option>
+        <option>no</option>
+        <option>N/A</option>
+      </select>
+    `;
+
+    if (["whereIsProductAvailableBrandOnly","whereIsProductAvailable"].includes(col)) {
+      input = `
+        <select data-col="${col}" onchange="onJudgeChange()">
+          <option></option>
+          <option>sold on amazon</option>
+          <option>sold elsewhere</option>
+          <option>not sold</option>
+        </select>`;
+    }
+
+    if (["exactAsinNeededCheckLocaleInUrl","exactProductLinkNeededCheckLocaleInUrl","comments"].includes(col)) {
+      input = `<textarea rows="2" data-col="${col}" oninput="onJudgeChange()" style="width:380px"></textarea>`;
+    }
+
+    judgeTableBody.innerHTML += `
+      <tr>
+        <td><strong>${col}</strong></td>
+        <td class="${same?"match":"mismatch"}">${linkCols.includes(col)?link(s1):s1}</td>
+        <td class="${same?"match":"mismatch"}">${linkCols.includes(col)?link(s2):s2}</td>
+        <td>${input}</td>
+      </tr>
+    `;
+
+    /* 🔹 AJOUT DYNAMIQUE DES BOUTONS BOTH OK */
+    if (["exactAsinNeededCheckLocaleInUrl","exactProductLinkNeededCheckLocaleInUrl"].includes(col)) {
+      setTimeout(() => {
+        const textarea = document.querySelector(`textarea[data-col="${col}"]`);
+        if (!textarea || textarea.dataset.bothok) return;
+
+        const btn = document.createElement("button");
+		btn.textContent = "Both OK";
+		btn.className = "both-ok-btn";
+
+        textarea.after(btn);
+        textarea.dataset.bothok = "1";
+
+        btn.onclick = () => {
+          textarea.value = `${s1};${s2}`;
+          onJudgeChange();
+        };
+      }, 0);
+    }
+  });
+
+  /* 🔹 AJOUT DYNAMIQUE BOUTON REINITIALISER */
+  setTimeout(() => {
+    if (!document.getElementById("resetLocalBtn")) {
+      const btnReset = document.createElement("button");
+      btnReset.id = "resetLocalBtn";
+      btnReset.textContent = "Réinitialiser";
+      btnReset.style.marginTop = "8px";
+      btnReset.style.backgroundColor = "#f44336";
+      btnReset.style.color = "#fff";
+      btnReset.style.height = "30px";
+      btnReset.onclick = () => {
+        if (confirm("Voulez-vous vraiment supprimer tous les enregistrements locaux ?")) {
+          // 🔹 Nettoyer uniquement les données liées au fichier courant
+          Object.keys(localStorage)
+            .filter(k => k.startsWith(`judge_${currentFileName}_`))
+            .forEach(k => localStorage.removeItem(k));
+          alert("Toutes les données locales de ce fichier ont été supprimées.");
+          updateByPosition();
+        }
+      };
+      document.querySelector(".container").prepend(btnReset);
+    }
+  }, 0);
+}
+
+/* =========================================================
+   SAUVEGARDE
+   ========================================================= */
+
+function onJudgeChange(){ saveLocalJudge(); updateJudgeStatus(); }
+
+function saveLocalJudge(){
+  const d={};
+  document.querySelectorAll("#judgeTableBody textarea,select")
+    .forEach(e=>d[e.dataset.col]=e.value);
+  localStorage.setItem(getStorageKey(),JSON.stringify(d));
+}
+
+function loadLocalJudge(){
+  const s=localStorage.getItem(getStorageKey());
+  if(!s)return;
+  const d=JSON.parse(s);
+  document.querySelectorAll("#judgeTableBody textarea,select")
+    .forEach(e=>e.value=d[e.dataset.col]||"");
+}
+
+/* =========================================================
+   EXPORT RESULTAT – SPLIT ; AUTOMATIQUE
+   ========================================================= */
+
+exportResultBtn.onclick = () => {
+
+  const lines = [];
+
+  positions.forEach(pos => {
+
+    const saved = localStorage.getItem(`judge_${currentFileName}_${pos}`);
+    if (!saved) return;
+
+    const judgeData = JSON.parse(saved);
+    const pair = rawData.filter(r => r[linePosIndex] === pos);
+    if (pair.length !== 2) return;
+
+    pair.forEach((rowTSV, idx) => {
+
+      const row = [];
+
+      topFields.forEach(f => row.push(rowTSV[smartIndexMap[f]] || ""));
+      smartCols.forEach(c => row.push(rowTSV[smartIndexMap[c]] || ""));
+
+      row.push(
+        rowTSV[linePosIndex] || "",
+        rowTSV[matriculeIndex] || "",
+        rowTSV[headers.indexOf("Index")] || ""
+      );
+
+      smartCols.forEach(c => {
+        const v = judgeData[c] || "";
+        if (v.includes(";")) {
+          const p = v.split(";").map(x => x.trim());
+          row.push(p[idx] || p[0] || "");
+        } else {
+          row.push(v);
+        }
+      });
+
+      lines.push(row.join("\t"));
+    });
+  });
+
+  if (!lines.length) {
+    alert("Aucune paire jugée à exporter.");
+    return;
+  }
+
+  navigator.clipboard.writeText(lines.join("\n"));
+  alert(`${lines.length} lignes exportées`);
+};
+</script>
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
