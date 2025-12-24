@@ -2,221 +2,769 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TSV Judge Interface – Compact</title>
-<div id="loadedFileName"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
+/* ===== VARIABLES & RESET ===== */
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --secondary: #7c3aed;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --dark: #1e293b;
+  --light: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-700: #334155;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  --radius: 8px;
+  --radius-sm: 4px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  padding: 20px;
+  color: var(--dark);
+}
+
+/* ===== CONTAINER ===== */
+.container {
+  background: white;
+  padding: 24px;
+  max-width: 1800px;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+  padding-bottom: 80px; /* Espace pour le footer */
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.header h2 {
+  font-size: 1.8rem;
+  color: var(--dark);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header h2::before {
+  content: '⚖️';
+  font-size: 1.5rem;
+}
+
+/* ===== LOADED FILE ===== */
 #loadedFileName {
-  text-align: center;
-  font-weight: bold;
-  color: #003366;      /* bleu foncé */
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: white;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  font-weight: 600;
   font-size: 14px;
-  margin: 8px 0 12px;
-}
-body{
-  font-family:Arial;
-  font-size:11px;
-  background:#f4f4f4;
-  padding:10px;
-}
-.container{
-  background:#fff;
-  padding:12px;
-  max-width:1800px;
-  margin:auto;
-  border-radius:6px;
-}
-button{
-  padding:4px 8px;
-  font-size:11px;
-  cursor:pointer;
-}
-.top-bar{
-  display:grid;
-  grid-template-columns:repeat(8,1fr);
-  gap:6px;
-  margin:10px 0;
-}
-.top-bar > div{
-  background:#f1f1f1;
-  padding:4px;
-  border-radius:4px;
-}
-.top-bar span{
-  font-size:10px;
-  font-weight:bold;
-  color:#555;
-  display:block;
-}
-.top-bar div div{
-  word-break:break-all;
-}
-.judge-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:10px;
-}
-.judge-table th,
-.judge-table td{
-  border:1px solid #ccc;
-  padding:4px;
-  vertical-align:top;
-}
-.judge-table th{
-  background:#222;
-  color:#fff;
-}
-.match{background:#d4edda;}
-.mismatch{background:#f8d7da;}
-textarea, select{
-  width:100%;
-  font-size:11px;
-  padding:3px;
-}
-.status{
-  font-weight:bold;
-  margin-top:6px;
-}
-a{color:blue;text-decoration:underline;}
-textarea.judge-input {
-    width: 374px;   /* largeur fixe comme ton exemple */
-    height: 59px;   /* hauteur fixe comme ton exemple */
-    box-sizing: border-box; /* inclut padding/border dans la taille */
-    font-size: 11px;
-    padding: 3px;
-    resize: none; /* empêche de redimensionner manuellement */
-}
-#positionSelect {
-  width: 7%;
-  font-size: 18px;
-  padding: 6px;
+  margin: 0 0 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow);
 }
 
-.both-ok-btn {
-  margin-left: 4px;
-  height: 30px;
-  padding: 0 10px;
-  background-color: #007bff; /* bleu */
-  color: #fff;               /* texte blanc */
+#loadedFileName::before {
+  content: '📄';
+  margin-right: 10px;
+}
+
+/* ===== CONTROL BAR ===== */
+.control-bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 18px;
+  background: linear-gradient(to right, var(--gray-100), white);
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
   border: none;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.both-ok-btn:hover {
-  background-color: #0056b3;
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
 }
 
-.both-ok-btn:active {
-  background-color: #004494;
+.btn:active {
+  transform: translateY(0);
 }
 
-#exportResultBtn {
-  margin: 10px 0;
-  padding: 8px 16px;
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--success), #0da271);
+  color: white;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--danger), #dc2626);
+  color: white;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid var(--primary);
+  color: var(--primary);
+}
+
+.btn-icon {
+  padding: 8px 12px;
+}
+
+/* ===== TOP INFO BAR ===== */
+.top-info-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) 1.5fr repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--gray-100);
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+}
+
+.info-card {
+  background: white;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--primary);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-2px);
+}
+
+.info-card span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-700);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.info-card div {
+  word-break: break-word;
   font-size: 12px;
-  font-weight: bold;
-  background-color: #28a745; /* vert */
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  color: var(--dark);
+  min-height: 18px;
 }
 
-#exportResultBtn:hover {
-  background-color: #218838;
+/* ===== TABLE ===== */
+.judge-table-container {
+  overflow-x: auto;
+  margin-bottom: 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow);
 }
 
-#exportResultBtn:active {
-  background-color: #1e7e34;
-  transform: scale(0.97);
+.judge-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1200px;
+  table-layout: fixed; /* Pour forcer les largeurs fixes */
 }
 
-#exportResultBtn:disabled {
-  background-color: #b5dfc0;
-  color: #eee;
-  cursor: not-allowed;
+.judge-table thead {
+  background: linear-gradient(135deg, var(--dark), #2d3748);
 }
 
-#openBtn {
-  margin-left: 4px;
-  height: 30px;
-  padding: 0 10px;
-  background-color: #007bff; /* bleu */
-  color: #fff;               /* texte blanc */
-  border: none;
-  border-radius: 4px;
+.judge-table th {
+  padding: 12px 10px; /* Réduit le padding */
+  text-align: left;
+  color: white;
+  font-weight: 600;
+  font-size: 11px; /* Réduit la taille de police */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 3px solid var(--primary);
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.judge-table tbody tr {
+  border-bottom: 1px solid var(--gray-200);
+  transition: background-color 0.2s ease;
+}
+
+.judge-table tbody tr:nth-child(even) {
+  background-color: var(--gray-100);
+}
+
+.judge-table tbody tr:hover {
+  background-color: #e0f2fe;
+}
+
+.judge-table td {
+  padding: 10px 10px; /* Réduit le padding */
+  vertical-align: top;
+  font-size: 11.5px; /* Réduit la taille de police */
+  overflow: hidden;
+  word-wrap: break-word;
+}
+
+/* ===== LARGEURS FIXES DES COLONNES ===== */
+.judge-table th:nth-child(1),
+.judge-table td:nth-child(1) {
+  width: 280px; /* Largeur fixe pour la première colonne (Attributs) */
+  min-width: 280px;
+  max-width: 280px;
+  font-weight: 600;
+  background-color: var(--light);
+  border-right: 2px solid var(--gray-200);
+}
+
+.judge-table th:nth-child(2),
+.judge-table td:nth-child(2),
+.judge-table th:nth-child(3),
+.judge-table td:nth-child(3),
+.judge-table th:nth-child(4),
+.judge-table td:nth-child(4) {
+  width: calc((100% - 280px) / 3); /* Division égale du reste de l'espace */
+  min-width: calc((100% - 280px) / 3);
+  max-width: calc((100% - 280px) / 3);
+}
+
+/* Colonne CQ (Judge Response) spécifique */
+.judge-table th:nth-child(4),
+.judge-table td:nth-child(4) {
+  background-color: rgba(37, 99, 235, 0.03); /* Léger fond bleu pour CQ */
+}
+
+/* ===== MATCH/MISMATCH ===== */
+.match {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
+  border-left: 4px solid var(--success) !important;
+}
+
+.mismatch {
+  background: linear-gradient(135deg, #fee2e2, #fecaca) !important;
+  border-left: 4px solid var(--danger) !important;
+}
+
+/* ===== FORM ELEMENTS DANS LE TABLEAU ===== */
+.judge-table select,
+.judge-table textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  font-size: 11px; /* Réduit la taille de police */
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.judge-table select:focus,
+.judge-table textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.judge-table textarea.judge-input {
+  width: 100% !important;
+  height: 50px;
+  resize: vertical;
+  min-height: 50px;
+  max-height: 100px;
   font-size: 11px;
+}
+
+/* ===== BOUTONS DANS LE TABLEAU ===== */
+.judge-table .both-ok-btn {
+  margin-left: 6px;
+  padding: 5px 10px;
+  background: linear-gradient(135deg, var(--warning), #f59e0b);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-#openBtn:hover {
-  background-color: #0056b3;
+.judge-table .both-ok-btn:hover {
+  background: linear-gradient(135deg, #e69500, #f59e0b);
+  transform: translateY(-1px);
 }
 
-#openBtn:active {
-  background-color: #004494;
+/* Conteneur pour textarea + bouton */
+.judge-table td:nth-child(4) > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
-#saveBtn {
+.judge-table td:nth-child(4) textarea {
+  flex: 1;
+  min-width: 0; /* Important pour le flex-shrink */
+}
+
+/* ===== SELECT DANS LA BARRE DE CONTRÔLE ===== */
+#positionSelect {
+  width: 120px;
+  font-size: 13px;
+  padding: 8px 10px;
+  font-weight: 600;
+  background: var(--light);
+  border: 2px solid var(--primary);
+}
+
+/* ===== FOOTER FIXE ===== */
+.fixed-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, var(--dark), #2d3748);
+  padding: 15px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  border-top: 3px solid var(--primary);
+}
+
+.footer-radio-group {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.radio-label:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.radio-label.active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.radio-label input[type="radio"] {
   display: none;
+}
+
+.radio-text {
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.radio-text::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid white;
+  display: inline-block;
+  transition: all 0.3s ease;
+}
+
+.radio-label.active .radio-text::before {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.3);
+}
+
+.radio-label.active .radio-text::after {
+  content: '✓';
+  position: absolute;
+  color: white;
+  font-size: 10px;
+  margin-left: -15px;
+}
+
+/* ===== NOTIFICATION ===== */
+#copyNotification {
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  background: var(--success);
+  color: white;
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  z-index: 1001;
+  display: none;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1400px) {
+  .top-info-bar {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .judge-table {
+    min-width: 1000px;
+  }
+  
+  .judge-table th:nth-child(1),
+  .judge-table td:nth-child(1) {
+    width: 250px;
+    min-width: 250px;
+    max-width: 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+    padding-bottom: 80px;
+  }
+  
+  .header {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  
+  .control-bar {
+    grid-template-columns: 1fr;
+  }
+  
+  .top-info-bar {
+    grid-template-columns: 1fr;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+  
+  .fixed-footer {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 15px;
+  }
+  
+  .footer-radio-group {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+  
+  .radio-label {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+/* ===== LINK STYLES ===== */
+a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 11.5px;
+  border-bottom: 1px dotted transparent;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  border-bottom: 1px dotted var(--primary);
+  color: var(--primary-dark);
+}
+
+/* ===== BADGES ===== */
+.badge {
+  display: inline-block;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+}
+
+.badge-success {
+  background: var(--success);
+  color: white;
+}
+
+.badge-warning {
+  background: var(--warning);
+  color: white;
+}
+
+/* ===== LOADING STATE ===== */
+.loading {
+  position: relative;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--gray-300);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== STYLES POUR LE TEXTE DANS LE TABLEAU ===== */
+.judge-table td strong {
+  font-size: 11px;
+  color: var(--dark);
+}
+
+.judge-table td {
+  line-height: 1.4;
 }
 </style>
 </head>
 
 <body>
 <div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h2>TSV Judge Interface</h2>
+    <div class="control-group">
+      <button id="openBtn" class="btn btn-primary">
+        📁 Open TSV File
+      </button>
+      <input type="file" id="fileInput" accept=".tsv" hidden>
+    </div>
+  </div>
 
-<h2>Interface TSV – Juge</h2>
+  <!-- Loaded File Display -->
+  <div id="loadedFileName"></div>
 
-<button id="openBtn">Open TSV</button>
-<input type="file" id="fileInput" accept=".tsv" hidden>
+  <!-- Control Bar -->
+  <div class="control-bar">
+    <div class="control-group">
+      <label for="positionSelect" style="font-weight: 600; color: var(--dark);">
+        📍 Line Position:
+      </label>
+      <select id="positionSelect"></select>
+    </div>
+    
+    <div></div> <!-- Spacer -->
+    
+    <button id="resetLocalBtn" class="btn btn-danger">
+      🔄 Reset
+    </button>
+    
+    <button id="exportResultBtn" class="btn btn-success">
+      📤 Export Results
+    </button>
+  </div>
 
+  <!-- Top Info Bar -->
+  <div class="top-info-bar">
+    <div class="info-card">
+      <span>Keywords</span>
+      <div id="keywords"></div>
+    </div>
+    <div class="info-card">
+      <span>First OS ASIN</span>
+      <div id="osAsin"></div>
+    </div>
+    <div class="info-card">
+      <span>First SP ASIN</span>
+      <div id="spAsin"></div>
+    </div>
+    <div class="info-card">
+      <span>Sparkle ASIN</span>
+      <div id="sparkleAsin"></div>
+    </div>
+    <div class="info-card">
+      <span>categorizeParentBrandOne</span>
+      <div id="catPB1"></div>
+    </div>
+    <div class="info-card">
+      <span>parentBrandOne</span>
+      <div id="pb1"></div>
+    </div>
+    <div class="info-card">
+      <span>categorizeBrandTypeOne</span>
+      <div id="catBT1"></div>
+    </div>
+    <div class="info-card">
+      <span>copyAndPasteBrandOne</span>
+      <div id="cpb1"></div>
+    </div>
+  </div>
 
-  <strong>Line position :</strong>
-  <select id="positionSelect"></select>
+  <!-- Judge Table -->
+  <div class="judge-table-container">
+    <table class="judge-table">
+      <thead>
+        <tr>
+          <th>Attributes</th>
+          <th>Smarter 1</th>
+          <th>Smarter 2</th>
+          <th>Judge Response</th>
+        </tr>
+      </thead>
+      <tbody id="judgeTableBody"></tbody>
+    </table>
+  </div>
 
-</br>
-<button id="saveBtn">Save</button>
-<button id="exportResultBtn"
-        style="margin:10px 0; padding:6px 14px; font-weight:bold;">
-  Exporter Resultat
-</button>
-
-
-<!-- 🔹 INFOS PRODUIT -->
-<div class="top-bar">
-  <div><span>Keywords</span><div id="keywords"></div></div>
-  <div><span>First OS ASIN</span><div id="osAsin"></div></div>
-  <div><span>First SP ASIN</span><div id="spAsin"></div></div>
-  <div><span>Sparkle ASIN</span><div id="sparkleAsin"></div></div>
-  <div><span>categorizeParentBrandOne</span><div id="catPB1"></div></div>
-  <div><span>parentBrandOne</span><div id="pb1"></div></div>
-  <div><span>categorizeBrandTypeOne</span><div id="catBT1"></div></div>
-  <div><span>copyAndPasteBrandOne</span><div id="cpb1"></div></div>
+  <!-- Notification -->
+  <div id="copyNotification">Copied to clipboard!</div>
 </div>
 
-<table class="judge-table">
-<thead>
-<tr>
-  <th>Libellés</th>
-  <th>Smarter 1</th>
-  <th>Smarter 2</th>
-  <th>Réponse Juge</th>
-</tr>
-</thead>
-<tbody id="judgeTableBody"></tbody>
-</table>
-
-<br>
-<span id="copyNotification" style="display:none;color:green;margin-left:8px;">Copié !</span>
+<!-- Fixed Footer -->
+<div class="fixed-footer" id="fixedFooter">
+  <div class="footer-radio-group">
+    <label class="radio-label" id="s1OkLabel">
+      <input type="radio" name="smartChoice" id="s1OkRadio">
+      <span class="radio-text">✅ S1 Ok (Copier toutes les réponses de Smarter 1)</span>
+    </label>
+    
+    <label class="radio-label" id="s2OkLabel">
+      <input type="radio" name="smartChoice" id="s2OkRadio">
+      <span class="radio-text">✅ S2 Ok (Copier toutes les réponses de Smarter 2)</span>
+    </label>
+  </div>
 </div>
 
-<<script>
+<script>
 /* =========================================================
    CONFIGURATION GÉNÉRALE
    ========================================================= */
@@ -231,6 +779,7 @@ let smartIndexMap = {};
 let linePosIndex = -1;
 let matriculeIndex = -1;
 let currentFileName = "";
+let currentRowData = { r1: null, r2: null }; // Stocker les données actuelles
 
 /* Colonnes Smarter */
 const smartCols = [
@@ -260,33 +809,141 @@ const topFields = [
 ];
 
 /* =========================================================
-   FONCTION MANQUANTE
+   INITIALISATION
    ========================================================= */
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialiser le bouton reset
+  document.getElementById('resetLocalBtn').onclick = resetLocalData;
+  
+  // Initialiser les événements des boutons radio
+  document.getElementById('s1OkRadio').addEventListener('change', function() {
+    if (this.checked) {
+      copySmarterToJudge(1);
+    }
+  });
+  
+  document.getElementById('s2OkRadio').addEventListener('change', function() {
+    if (this.checked) {
+      copySmarterToJudge(2);
+    }
+  });
+});
 
 function updateJudgeStatus() {
   // Fonction vide pour éviter l'erreur
-  // Tu peux ajouter du code ici si tu veux afficher le statut
+}
+
+/* =========================================================
+   FONCTION POUR COPIER LES RÉPONSES DE SMARTER VERS LE JUGE
+   ========================================================= */
+
+function copySmarterToJudge(smarterNumber) {
+  // Désactiver l'autre bouton radio
+  if (smarterNumber === 1) {
+    document.getElementById('s2OkRadio').checked = false;
+    document.getElementById('s2OkLabel').classList.remove('active');
+    document.getElementById('s1OkLabel').classList.add('active');
+  } else {
+    document.getElementById('s1OkRadio').checked = false;
+    document.getElementById('s1OkLabel').classList.remove('active');
+    document.getElementById('s2OkLabel').classList.add('active');
+  }
+  
+  // S'assurer que nous avons les données actuelles
+  if (!currentRowData.r1 || !currentRowData.r2) {
+    console.error("Aucune donnée de ligne disponible");
+    return;
+  }
+  
+  // Copier les valeurs de chaque colonne
+  smartCols.forEach(col => {
+    let value = "";
+    
+    if (smarterNumber === 1) {
+      value = (currentRowData.r1[smartIndexMap[col]] || "").trim();
+    } else {
+      value = (currentRowData.r2[smartIndexMap[col]] || "").trim();
+    }
+    
+    // Trouver le champ correspondant dans la colonne Judge
+    const judgeField = document.querySelector(`[data-col="${col}"]`);
+    
+    if (judgeField) {
+      // Traitement spécial pour les colonnes avec sélect
+      if (["whereIsProductAvailableBrandOnly", "whereIsProductAvailable"].includes(col)) {
+        // Pour les sélects, trouver l'option correspondante
+        const options = judgeField.options;
+        for (let i = 0; i < options.length; i++) {
+          if (options[i].value === value.toLowerCase()) {
+            judgeField.selectedIndex = i;
+            break;
+          }
+        }
+      } 
+      // Traitement spécial pour les colonnes yes/no/N/A
+      else if (["isSparkleAsinAMatchCheckBrandOnly", "isSparkleAsinAMatchCheckBothPtAndBrand", 
+                "isSpAsinAMatchCheckBrandOnly", "isSpAsinAMatchCheckBothPtAndBrand",
+                "isOsAsinAMatchCheckBrandOnly", "isOsAsinAMatchCheckBothPtAndBrand"].includes(col)) {
+        // Pour les sélects yes/no/N/A
+        if (value.toLowerCase() === 'yes' || value.toLowerCase() === 'no' || value.toLowerCase() === 'n/a') {
+          const options = judgeField.options;
+          for (let i = 0; i < options.length; i++) {
+            if (options[i].value === value.toLowerCase()) {
+              judgeField.selectedIndex = i;
+              break;
+            }
+          }
+        }
+      }
+      // Pour les textarea (URLs et comments)
+      else if (["exactAsinNeededCheckLocaleInUrl", "exactProductLinkNeededCheckLocaleInUrl", "comments"].includes(col)) {
+        judgeField.value = value;
+      }
+      
+      // Déclencher l'événement de changement
+      judgeField.dispatchEvent(new Event('change'));
+    }
+  });
+  
+  // Afficher une notification
+  showNotification(`✅ Toutes les réponses de Smarter ${smarterNumber} ont été copiées vers le juge`);
+}
+
+/* =========================================================
+   FONCTION POUR RÉINITIALISER LES BOUTONS RADIO
+   ========================================================= */
+
+function resetRadioButtons() {
+  document.getElementById('s1OkRadio').checked = false;
+  document.getElementById('s2OkRadio').checked = false;
+  document.getElementById('s1OkLabel').classList.remove('active');
+  document.getElementById('s2OkLabel').classList.remove('active');
 }
 
 /* =========================================================
    OUVERTURE FICHIER
    ========================================================= */
 
-openBtn.onclick = () => fileInput.click();
+document.getElementById('openBtn').onclick = () => document.getElementById('fileInput').click();
 
-fileInput.onchange = e => {
+document.getElementById('fileInput').onchange = e => {
   const file = e.target.files[0];
   if (!file) return;
   currentFileName = file.name;
-  document.getElementById("loadedFileName").textContent = file.name;
+  const fileNameDisplay = document.getElementById("loadedFileName");
+  fileNameDisplay.textContent = `📁 ${file.name}`;
+  fileNameDisplay.innerHTML += `<span class="badge badge-success">LOADED</span>`;
 
-
+  // Animation de chargement
+  document.body.classList.add('loading');
 
   Papa.parse(file, {
     delimiter: "\t",
     skipEmptyLines: true,
     complete: r => {
-
+      document.body.classList.remove('loading');
+      
       headers = r.data[1];
       rawData = r.data.slice(2);
       smartIndexMap = {};
@@ -310,6 +967,7 @@ fileInput.onchange = e => {
         .filter(p => counter[p] === 2)
         .sort((a, b) => a - b);
 
+      const positionSelect = document.getElementById("positionSelect");
       positionSelect.innerHTML = "";
       positions.forEach(p => positionSelect.add(new Option(p, p)));
       positionSelect.onchange = updateByPosition;
@@ -326,17 +984,34 @@ fileInput.onchange = e => {
    OUTILS
    ========================================================= */
 
-const link = v => v ? `<a href="${v}" target="_blank">${v}</a>` : "";
-const getStorageKey = () => `judge_${currentFileName}_${positionSelect.value}`;
+const link = v => v ? `<a href="${v}" target="_blank" rel="noopener noreferrer">${v}</a>` : "";
+const getStorageKey = () => `judge_${currentFileName}_${document.getElementById("positionSelect").value}`;
+
+function showNotification(message) {
+  const notification = document.getElementById("copyNotification");
+  notification.textContent = message;
+  notification.style.display = 'block';
+  setTimeout(() => {
+    notification.style.display = 'none';
+  }, 3000);
+}
 
 /* =========================================================
    CHARGEMENT PAIRE
    ========================================================= */
 
 function updateByPosition() {
-  const pos = positionSelect.value;
+  const pos = document.getElementById("positionSelect").value;
   const pair = rawData.filter(r => r[linePosIndex] === pos);
   if (pair.length !== 2) return;
+  
+  // Réinitialiser les boutons radio
+  resetRadioButtons();
+  
+  // Mettre à jour les données actuelles
+  currentRowData.r1 = pair[0];
+  currentRowData.r2 = pair[1];
+  
   renderRow(pair[0], pair[1]);
   loadLocalJudge();
   updateJudgeStatus();
@@ -347,142 +1022,139 @@ function updateByPosition() {
    ========================================================= */
 
 function renderRow(r1, r2) {
+  const judgeTableBody = document.getElementById("judgeTableBody");
+  judgeTableBody.innerHTML = "";
 
+  // Mettre à jour les infos produit
+  document.getElementById("keywords").textContent = r1[smartIndexMap.keywords] || "";
+  document.getElementById("osAsin").innerHTML = link(r1[smartIndexMap.first_os_asin]);
+  document.getElementById("spAsin").innerHTML = link(r1[smartIndexMap.first_sp_asin]);
+  document.getElementById("sparkleAsin").innerHTML = link(r1[smartIndexMap.sparkle_first_asin]);
+  document.getElementById("catPB1").textContent = r1[smartIndexMap.categorizeParentBrandOne] || "";
+  document.getElementById("pb1").textContent = r1[smartIndexMap.parentBrandOne] || "";
+  document.getElementById("catBT1").textContent = r1[smartIndexMap.categorizeBrandTypeOne] || "";
+  document.getElementById("cpb1").textContent = r1[smartIndexMap.copyAndPasteBrandOne] || "";
+
+  // Mettre à jour l'en-tête du tableau
   document.querySelector(".judge-table thead").innerHTML = `
     <tr>
-      <th>Attributs</th>
-      <th>${r1[matriculeIndex] || "MATRICULE 1"}</th>
-      <th>${r2[matriculeIndex] || "MATRICULE 2"}</th>
-      <th>Juge/CQ</th>
+      <th>Attributes</th>
+      <th>${r1[matriculeIndex] || "MATRICULE 1"} <span class="badge badge-warning">S1</span></th>
+      <th>${r2[matriculeIndex] || "MATRICULE 2"} <span class="badge badge-warning">S2</span></th>
+      <th>Judge Response <span class="badge badge-success">CQ</span></th>
     </tr>
   `;
 
-  keywords.textContent = r1[smartIndexMap.keywords] || "";
-  osAsin.innerHTML = link(r1[smartIndexMap.first_os_asin]);
-  spAsin.innerHTML = link(r1[smartIndexMap.first_sp_asin]);
-  sparkleAsin.innerHTML = link(r1[smartIndexMap.sparkle_first_asin]);
-  catPB1.textContent = r1[smartIndexMap.categorizeParentBrandOne] || "";
-  pb1.textContent = r1[smartIndexMap.parentBrandOne] || "";
-  catBT1.textContent = r1[smartIndexMap.categorizeBrandTypeOne] || "";
-  cpb1.textContent = r1[smartIndexMap.copyAndPasteBrandOne] || "";
-
-  judgeTableBody.innerHTML = "";
-
+  // Rendre chaque ligne
   smartCols.forEach(col => {
-
     const s1 = (r1[smartIndexMap[col]] || "").trim();
     const s2 = (r2[smartIndexMap[col]] || "").trim();
     const same = s1 === s2;
 
     let input = `
-      <select data-col="${col}" onchange="onJudgeChange()">
-        <option></option>
-        <option>yes</option>
-        <option>no</option>
-        <option>N/A</option>
+      <select data-col="${col}" onchange="onJudgeChange()" class="judge-select">
+        <option value=""></option>
+        <option value="yes">✅ Yes</option>
+        <option value="no">❌ No</option>
+        <option value="N/A">⚪ N/A</option>
       </select>
     `;
 
     if (["whereIsProductAvailableBrandOnly","whereIsProductAvailable"].includes(col)) {
       input = `
-        <select data-col="${col}" onchange="onJudgeChange()">
-          <option></option>
-          <option>sold on amazon</option>
-          <option>sold elsewhere</option>
-          <option>not sold</option>
+        <select data-col="${col}" onchange="onJudgeChange()" class="judge-select">
+          <option value=""></option>
+          <option value="sold on amazon">🛒 Sold on Amazon</option>
+          <option value="sold elsewhere">🏪 Sold Elsewhere</option>
+          <option value="not sold">🚫 Not Sold</option>
         </select>`;
     }
 
     if (["exactAsinNeededCheckLocaleInUrl","exactProductLinkNeededCheckLocaleInUrl","comments"].includes(col)) {
-      input = `<textarea rows="2" data-col="${col}" oninput="onJudgeChange()" style="width:380px"></textarea>`;
+      input = `<textarea rows="2" data-col="${col}" oninput="onJudgeChange()" class="judge-input" placeholder="Enter response..."></textarea>`;
     }
 
-    judgeTableBody.innerHTML += `
-      <tr>
-        <td><strong>${col}</strong></td>
-        <td class="${same?"match":"mismatch"}">${linkCols.includes(col)?link(s1):s1}</td>
-        <td class="${same?"match":"mismatch"}">${linkCols.includes(col)?link(s2):s2}</td>
-        <td>${input}</td>
-      </tr>
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td><strong>${col}</strong></td>
+      <td class="${same?"match":"mismatch"}">${linkCols.includes(col)?link(s1):s1}</td>
+      <td class="${same?"match":"mismatch"}">${linkCols.includes(col)?link(s2):s2}</td>
+      <td>
+        <div style="display: flex; align-items: start;">
+          ${input}
+          ${["exactAsinNeededCheckLocaleInUrl","exactProductLinkNeededCheckLocaleInUrl"].includes(col) 
+            ? `<button class="both-ok-btn" data-col="${col}">Both OK</button>` 
+            : ''}
+        </div>
+      </td>
     `;
-
-    /* 🔹 AJOUT DYNAMIQUE DES BOUTONS BOTH OK */
-    if (["exactAsinNeededCheckLocaleInUrl","exactProductLinkNeededCheckLocaleInUrl"].includes(col)) {
-      setTimeout(() => {
-        const textarea = document.querySelector(`textarea[data-col="${col}"]`);
-        if (!textarea || textarea.dataset.bothok) return;
-
-        const btn = document.createElement("button");
-		btn.textContent = "Both OK";
-		btn.className = "both-ok-btn";
-
-        textarea.after(btn);
-        textarea.dataset.bothok = "1";
-
-        btn.onclick = () => {
-          textarea.value = `${s1};${s2}`;
-          onJudgeChange();
-        };
-      }, 0);
+    
+    judgeTableBody.appendChild(row);
+    
+    // Ajouter l'événement au bouton Both OK si présent
+    const bothOkBtn = row.querySelector('.both-ok-btn');
+    if (bothOkBtn) {
+      bothOkBtn.onclick = function() {
+        const textarea = row.querySelector('textarea');
+        textarea.value = `${s1};${s2}`;
+        onJudgeChange();
+      };
     }
   });
-
-  /* 🔹 AJOUT DYNAMIQUE BOUTON REINITIALISER */
-  setTimeout(() => {
-    if (!document.getElementById("resetLocalBtn")) {
-      const btnReset = document.createElement("button");
-      btnReset.id = "resetLocalBtn";
-      btnReset.textContent = "Réinitialiser";
-      btnReset.style.marginTop = "8px";
-      btnReset.style.backgroundColor = "#f44336";
-      btnReset.style.color = "#fff";
-      btnReset.style.height = "30px";
-      btnReset.onclick = () => {
-        if (confirm("Voulez-vous vraiment supprimer tous les enregistrements locaux ?")) {
-          // 🔹 Nettoyer uniquement les données liées au fichier courant
-          Object.keys(localStorage)
-            .filter(k => k.startsWith(`judge_${currentFileName}_`))
-            .forEach(k => localStorage.removeItem(k));
-          alert("Toutes les données locales de ce fichier ont été supprimées.");
-          updateByPosition();
-        }
-      };
-      document.querySelector(".container").prepend(btnReset);
-    }
-  }, 0);
 }
 
 /* =========================================================
-   SAUVEGARDE
+   SAUVEGARDE & CHARGEMENT
    ========================================================= */
 
-function onJudgeChange(){ saveLocalJudge(); updateJudgeStatus(); }
-
-function saveLocalJudge(){
-  const d={};
-  document.querySelectorAll("#judgeTableBody textarea,select")
-    .forEach(e=>d[e.dataset.col]=e.value);
-  localStorage.setItem(getStorageKey(),JSON.stringify(d));
+function onJudgeChange() { 
+  saveLocalJudge(); 
+  updateJudgeStatus();
 }
 
-function loadLocalJudge(){
-  const s=localStorage.getItem(getStorageKey());
-  if(!s)return;
-  const d=JSON.parse(s);
-  document.querySelectorAll("#judgeTableBody textarea,select")
-    .forEach(e=>e.value=d[e.dataset.col]||"");
+function saveLocalJudge() {
+  const data = {};
+  document.querySelectorAll("#judgeTableBody textarea, #judgeTableBody select").forEach(e => {
+    data[e.dataset.col] = e.value;
+  });
+  localStorage.setItem(getStorageKey(), JSON.stringify(data));
+}
+
+function loadLocalJudge() {
+  const saved = localStorage.getItem(getStorageKey());
+  if (!saved) return;
+  const data = JSON.parse(saved);
+  document.querySelectorAll("#judgeTableBody textarea, #judgeTableBody select").forEach(e => {
+    e.value = data[e.dataset.col] || "";
+  });
 }
 
 /* =========================================================
-   EXPORT RESULTAT – SPLIT ; AUTOMATIQUE
+   RESET DATA
    ========================================================= */
 
-exportResultBtn.onclick = () => {
+function resetLocalData() {
+  if (confirm("Are you sure you want to reset all local judge data for this file?")) {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith(`judge_${currentFileName}_`)) {
+        localStorage.removeItem(key);
+      }
+    });
+    showNotification("✅ Local data reset successfully");
+    updateByPosition();
+  }
+}
 
+/* =========================================================
+   EXPORT RESULTAT
+   ========================================================= */
+
+document.getElementById("exportResultBtn").onclick = function() {
   const lines = [];
+  const positionSelect = document.getElementById("positionSelect");
 
   positions.forEach(pos => {
-
     const saved = localStorage.getItem(`judge_${currentFileName}_${pos}`);
     if (!saved) return;
 
@@ -491,23 +1163,27 @@ exportResultBtn.onclick = () => {
     if (pair.length !== 2) return;
 
     pair.forEach((rowTSV, idx) => {
-
       const row = [];
 
+      // Ajouter les top fields
       topFields.forEach(f => row.push(rowTSV[smartIndexMap[f]] || ""));
+      
+      // Ajouter les smart columns originales
       smartCols.forEach(c => row.push(rowTSV[smartIndexMap[c]] || ""));
-
+      
+      // Ajouter les métadonnées
       row.push(
         rowTSV[linePosIndex] || "",
         rowTSV[matriculeIndex] || "",
         rowTSV[headers.indexOf("Index")] || ""
       );
 
+      // Ajouter les jugements
       smartCols.forEach(c => {
         const v = judgeData[c] || "";
         if (v.includes(";")) {
-          const p = v.split(";").map(x => x.trim());
-          row.push(p[idx] || p[0] || "");
+          const parts = v.split(";").map(x => x.trim());
+          row.push(parts[idx] || parts[0] || "");
         } else {
           row.push(v);
         }
@@ -518,27 +1194,19 @@ exportResultBtn.onclick = () => {
   });
 
   if (!lines.length) {
-    alert("Aucune paire jugée à exporter.");
+    alert("No judged pairs to export.");
     return;
   }
 
-  navigator.clipboard.writeText(lines.join("\n"));
-  alert(`${lines.length} lignes exportées`);
+  // Copier dans le presse-papier
+  navigator.clipboard.writeText(lines.join("\n")).then(() => {
+    showNotification(`✅ ${lines.length} lines copied to clipboard!`);
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    alert(`Exported ${lines.length} lines. Please copy manually from console.`);
+    console.log(lines.join("\n"));
+  });
 };
 </script>
-
-
-
-
-
-
-
-
-
-
-
 </body>
 </html>
-
-
-
